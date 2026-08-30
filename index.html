@@ -12,7 +12,7 @@
         
         #container { 
             display: grid; 
-            grid-template-columns: 420px 1fr; 
+            grid-template-columns: 440px 1fr; 
             gap: 20px; 
             align-items: start; 
             max-width: 1300px;
@@ -64,11 +64,14 @@
         .btn-del:hover { background: #c82333; }
 
         .empty-hint { color: #888; font-style: italic; font-size: 13px; margin-bottom: 8px; }
-        .map-link-btn { display: inline-block; background: #ff5722; color: white; text-decoration: none; padding: 8px 12px; border-radius: 4px; font-weight: bold; margin-top: 10px; font-size: 13px; text-align: center; width: calc(100% - 24px); }
+        .map-link-btn { display: inline-block; background: #ff5722; color: white; text-decoration: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; margin-top: 8px; font-size: 14px; text-align: center; width: 100%; box-sizing: border-box; }
         .map-link-btn:hover { background: #e64a19; }
         
         .map-popup-btn { background: #28a745; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 6px; }
         .map-popup-btn:hover { background: #218838; }
+
+        .map-popup-btn-depot { background: #002855; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 6px; }
+        .map-popup-btn-depot:hover { background: #001d3d; }
 
         .map-popup-btn-red { background: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 6px; }
         .map-popup-btn-red:hover { background: #c82333; }
@@ -83,12 +86,12 @@
         <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Route Planner & OSRM Routing</p>
 
         <div class="input-group">
-            <label>Start Depot</label>
+            <label>Departure</label>
             <input type="text" id="depotInput" value="Sørestrandvegen 39, 6220 Straumgjerde" oninput="handleDepotInput(this)">
             <div id="depotSuggestions" class="suggestions-box"></div>
         </div>
 
-        <label>Loading List (First loaded = Last unloaded)</label>
+        <label>Tour Stops (Drag to reorder)</label>
         <div id="addressListContainer">
             <div class="empty-hint" id="emptyHint">No addresses added yet.</div>
         </div>
@@ -99,7 +102,8 @@
         </div>
         <button onclick="addAddress()">Add Address</button>
 
-        <button class="btn-green" onclick="calculateRoute()">Calculate Route</button>
+        <button class="btn-green" onclick="optimizeAndSortRoute()">Optimize & Sort Route (TSP)</button>
+        <div id="gmapLinkContainer"></div>
         
         <div class="status-box">
             <strong>Status:</strong> <span id="statusText">Ready. Add addresses.</span>
@@ -135,6 +139,7 @@
 
     let addresses = []; 
     let debounceTimer = null;
+    let depotDebounceTimer = null;
     let selectedNewAddress = null;
     let draggedIndex = null;
     let routeLayer = null;
@@ -164,7 +169,7 @@
     };
     L.control.layers(baseMaps, null, { position: 'bottomleft' }).addTo(map);
 
-    // Right-click event on the map to add a tour stop
+    // Right-click event on the map
     map.on('contextmenu', async function(e) {
         const lat = e.latlng.lat;
         const lng = e.latlng.lng;
@@ -186,7 +191,6 @@
                 map.closePopup();
                 document.getElementById('statusText').innerText = "Adding location from map...";
                 
-                // Add to tour (maintains tour order)
                 addresses.push({
                     name: addressName,
                     lat: lat,
@@ -197,11 +201,19 @@
                 await calculateRoute();
             };
 
+            window.setDepotFromMap = async function() {
+                map.closePopup();
+                document.getElementById('depotInput').value = addressName;
+                document.getElementById('statusText').innerText = "Updating departure...";
+                await calculateRoute();
+            };
+
             popup.setContent(`
                 <div style="font-size: 13px; max-width: 220px;">
-                    <b>New Tour Stop:</b><br>
+                    <b>Location Options:</b><br>
                     <span style="font-size: 11px; color: #444;">${addressName}</span>
-                    <button class="map-popup-btn" onclick="addStoppFromMap()">+ Add to Tour</button>
+                    <button class="map-popup-btn" onclick="addStoppFromMap()">+ Add Tour Stop</button>
+                    <button class="map-popup-btn-depot" onclick="setDepotFromMap()">🏠 Set as Departure</button>
                 </div>
             `);
         } catch (err) {
@@ -227,7 +239,6 @@
         await calculateRoute();
     };
 
-    // Helper to create numbered marker icons
     function createNumberedMarkerIcon(text, bgColor) {
         return L.divIcon({
             className: 'custom-numbered-marker',
@@ -239,11 +250,18 @@
     }
 
     function handleDepotInput(inputElement) {
-        clearTimeout(debounceTimer);
+        clearTimeout(depotDebounceTimer);
         const query = inputElement.value.trim();
         const box = document.getElementById('depotSuggestions');
         if (query.length < 3) { box.innerHTML = ""; return; }
-        debounceTimer = setTimeout(() => fetchSuggestions(query, box, inputElement, null), 300);
+        
+        debounceTimer = setTimeout(() => fetchSuggestions(query, box, inputElement, async () => {
+            await calculateRoute();
+        }), 300);
+
+        depotDebounceTimer = setTimeout(async () => {
+            await calculateRoute();
+        }, 800);
     }
 
     function handleNewAddressInput(inputElement) {
@@ -285,7 +303,7 @@
                     const div = document.createElement('div');
                     div.className = 'suggestion-item';
                     div.innerText = item.display_name;
-                    div.onclick = () => {
+                    div.onclick = async () => {
                         inputElement.value = item.display_name;
                         const obj = {
                             name: item.display_name,
@@ -293,7 +311,7 @@
                             lng: parseFloat(item.lon)
                         };
                         boxElement.innerHTML = "";
-                        if (onSelectCallback) onSelectCallback(obj);
+                        if (onSelectCallback) await onSelectCallback(obj);
                     };
                     boxElement.appendChild(div);
                 });
@@ -368,23 +386,19 @@
         await calculateRoute();
     }
 
-    // Drag and drop operates on the reversed loading list view
-    function dragStart(e, loadingIndex, totalCount) { 
-        // Convert loading list index back to tour index
-        draggedIndex = totalCount - 1 - loadingIndex; 
+    function dragStart(e, index) { 
+        draggedIndex = index; 
         e.dataTransfer.effectAllowed = 'move'; 
         setTimeout(() => e.target.classList.add('dragging'), 0); 
     }
     function dragEnd(e) { e.target.classList.remove('dragging'); draggedIndex = null; }
     function dragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
-    async function drop(e, loadingIndex, totalCount) {
+    async function drop(e, targetIndex) {
         e.preventDefault();
-        if (draggedIndex === null) return;
-        const targetTourIndex = totalCount - 1 - loadingIndex;
-        if (draggedIndex === targetTourIndex) return;
+        if (draggedIndex === null || draggedIndex === targetIndex) return;
 
         const item = addresses.splice(draggedIndex, 1)[0];
-        addresses.splice(targetTourIndex, 0, item);
+        addresses.splice(targetIndex, 0, item);
         updateAddressUI();
         await calculateRoute();
     }
@@ -397,33 +411,85 @@
             return;
         }
 
-        // Display loading list in reverse order of the tour (last tour stop = first loaded = top of list)
-        const loadingList = [...addresses].reverse();
-        const totalCount = addresses.length;
-
-        loadingList.forEach((addr, loadingIndex) => {
-            // Original tour index for deletion & mapping
-            const tourIndex = totalCount - 1 - loadingIndex;
-
+        addresses.forEach((addr, tourIndex) => {
             container.innerHTML += `
                 <div class="address-item" draggable="true" 
-                     ondragstart="dragStart(event, ${loadingIndex}, ${totalCount})" 
+                     ondragstart="dragStart(event, ${tourIndex})" 
                      ondragend="dragEnd(event)" 
                      ondragover="dragOver(event)" 
-                     ondrop="drop(event, ${loadingIndex}, ${totalCount})">
+                     ondrop="drop(event, ${tourIndex})">
                     <div class="address-content">
                         <span class="drag-handle">☰</span>
-                        <span><b>${loadingIndex + 1}.</b> ${addr.name} <span style="color: #666; font-size: 11px;">(Tour Stop #${tourIndex + 1})</span></span>
+                        <span><b>Stop #${tourIndex + 1}:</b> ${addr.name}</span>
                     </div>
                     <button class="btn-del" onclick="removeAddress(${tourIndex})">X</button>
                 </div>`;
         });
     }
 
+    function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = deg2rad(lat2 - lat1);
+        const dLon = deg2rad(lon2 - lon1);
+        const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    }
+
+    function deg2rad(deg) {
+        return deg * (Math.PI/180);
+    }
+
+    async function optimizeAndSortRoute() {
+        if (addresses.length <= 1) {
+            alert("Add at least 2 addresses to optimize the route.");
+            return;
+        }
+
+        const depotText = document.getElementById('depotInput').value.trim();
+        let depot = await geocodeAddress(depotText);
+        if (!depot) {
+            alert("Departure could not be found.");
+            return;
+        }
+
+        document.getElementById('statusText').innerText = "Optimizing route (TSP)...";
+        logDebug("Running Nearest Neighbor route optimization...");
+
+        let unvisited = [...addresses];
+        let optimized = [];
+        let currentPoint = depot;
+
+        while (unvisited.length > 0) {
+            let nearestIdx = 0;
+            let minDist = Infinity;
+
+            unvisited.forEach((pt, idx) => {
+                const dist = getDistanceFromLatLonInKm(currentPoint.lat, currentPoint.lng, pt.lat, pt.lng);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearestIdx = idx;
+                }
+            });
+
+            const nextStop = unvisited.splice(nearestIdx, 1)[0];
+            optimized.push(nextStop);
+            currentPoint = nextStop;
+        }
+
+        addresses = optimized;
+        updateAddressUI();
+        await calculateRoute();
+        document.getElementById('statusText').innerText = "Route optimized!";
+        logDebug("Route optimization completed.");
+    }
+
     async function calculateRoute() {
         const depotText = document.getElementById('depotInput').value.trim();
         if (!depotText) {
-            alert("Please provide a start depot!");
             return;
         }
 
@@ -432,7 +498,6 @@
         
         let depot = await geocodeAddress(depotText);
         if (!depot || isNaN(depot.lat) || isNaN(depot.lng)) {
-            alert("Start depot could not be found.");
             document.getElementById('statusText').innerText = "Ready.";
             return;
         }
@@ -442,15 +507,12 @@
         markersLayer.clearLayers();
         previewMarkerLayer.clearLayers();
 
-        // Depot Marker ('VD' - Dark Blue)
         L.marker([depot.lat, depot.lng], {
             icon: createNumberedMarkerIcon('VD', '#002855')
-        }).addTo(markersLayer).bindPopup(`<b>Start Depot:</b><br>${depot.name}`);
+        }).addTo(markersLayer).bindPopup(`<b>Departure:</b><br>${depot.name}`);
 
-        // OSRM gets waypoints in exact tour order (Index 0 = Stop 1)
         const allWaypoints = [depot, ...validStops];
         
-        // Map markers directly corresponding to tour order (1 = first stop on tour, etc.)
         validStops.forEach((stop, idx) => {
             const marker = L.marker([stop.lat, stop.lng], {
                 icon: createNumberedMarkerIcon(idx + 1, '#007BFF')
@@ -481,10 +543,12 @@
             });
         });
 
+        const gmapContainer = document.getElementById('gmapLinkContainer');
         if (validStops.length === 0) {
             map.setView([depot.lat, depot.lng], 11);
             if (routeLayer) map.removeLayer(routeLayer);
-            document.getElementById('output').innerHTML = `<strong>Start Depot:</strong><br>📍 ${depot.name}<br><br><span style="color:#666;">Add addresses to calculate route.</span>`;
+            document.getElementById('output').innerHTML = `<span style="color:#666;">Add addresses to calculate route.</span>`;
+            gmapContainer.innerHTML = "";
             document.getElementById('statusText').innerText = "Ready.";
             return;
         }
@@ -510,7 +574,6 @@
 
                 map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
 
-                // Google Maps link uses tour order
                 let gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(depot.name)}`;
                 if (validStops.length === 1) {
                     gmapsUrl += `&destination=${encodeURIComponent(validStops[0].name)}`;
@@ -520,15 +583,20 @@
                     gmapsUrl += `&waypoints=${intermediate}`;
                 }
 
-                let html = `<strong>Start Depot:</strong><br>📍 ${depot.name}<br><br>`;
-                html += `<strong>Loading List (First loaded = Last unloaded):</strong><br><ol style="margin: 5px 0 10px 20px; padding: 0;">`;
-                [...validStops].reverse().forEach((stop) => {
-                    html += `<li>${stop.name}</li>`;
+                gmapContainer.innerHTML = `<a class="map-link-btn" href="${gmapsUrl}" target="_blank">Open Full Route in Google Maps ↗</a>`;
+
+                let html = "";
+
+                // Pure loading list (LIFO, start depot omitted):
+                html += `<strong>Loading List (LIFO - For the ramp):</strong><br><ol style="margin: 5px 0 10px 20px; padding: 0;">`;
+                [...validStops].reverse().forEach((stop, idx, arr) => {
+                    const originalStopNum = arr.length - idx;
+                    html += `<li><b>Tour Stop #${originalStopNum}:</b> ${stop.name}</li>`;
                 });
                 html += `</ol>`;
+
                 html += `<hr style="border:0; border-top:1px solid #ccc; margin:10px 0;">`;
                 html += `🚗 <b>Total Distance:</b> ${distanceKm} km | ⏱️ <b>Time:</b> ${durationHours} hrs`;
-                html += `<br><a class="map-link-btn" href="${gmapsUrl}" target="_blank">Open Full Route in Google Maps ↗</a>`;
 
                 document.getElementById('output').innerHTML = html;
             } else {
@@ -540,19 +608,18 @@
         document.getElementById('statusText').innerText = "Ready.";
     }
 
-    // Initialize default depot marker on page load
     window.addEventListener('DOMContentLoaded', async () => {
-        logDebug("Page loaded, initializing default depot marker...");
+        logDebug("Page loaded, initializing default departure marker...");
         const depotText = document.getElementById('depotInput').value.trim();
         const depot = await geocodeAddress(depotText);
         if (depot) {
             markersLayer.clearLayers();
             L.marker([depot.lat, depot.lng], {
                 icon: createNumberedMarkerIcon('VD', '#002855')
-            }).addTo(markersLayer).bindPopup(`<b>Start Depot:</b><br>${depot.name}`);
+            }).addTo(markersLayer).bindPopup(`<b>Departure:</b><br>${depot.name}`);
             map.setView([depot.lat, depot.lng], 11);
-            document.getElementById('output').innerHTML = `<strong>Start Depot:</strong><br>📍 ${depot.name}<br><br><span style="color:#666;">Add addresses to calculate route.</span>`;
-            logDebug("Default depot marker set.");
+            document.getElementById('output').innerHTML = `<span style="color:#666;">Add addresses to calculate route.</span>`;
+            logDebug("Default departure marker set.");
         }
     });
 </script>
