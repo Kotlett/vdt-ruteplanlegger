@@ -31,6 +31,27 @@
         .input-group { position: relative; margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
         
+        /* Flexbox für Überschriftzeile mit "Delete All"-Button ganz rechts */
+        .list-header-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .btn-clear-all {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-weight: bold;
+            border-radius: 3px;
+            cursor: pointer;
+            width: auto;
+            margin-top: 0;
+        }
+        .btn-clear-all:hover { background: #c82333; }
+
         .departure-wrapper { display: flex; gap: 5px; }
         .departure-wrapper input[type="text"] { flex-grow: 1; }
         
@@ -131,7 +152,11 @@
         </div>
         <button onclick="addAddress()" style="margin-top: 5px; margin-bottom: 15px;">Add Unload Stop</button>
 
-        <label>Tour Stops & Via-Points (Auto-sorted)</label>
+        <div class="list-header-wrapper">
+            <label style="margin-bottom:0;">Tour Stops & Via-Points (Auto-sorted)</label>
+            <button class="btn-clear-all" onclick="removeAllAddresses()" title="Delete all stops">🗑️ Clear All (X)</button>
+        </div>
+
         <div id="addressListContainer">
             <div class="empty-hint" id="emptyHint">No stops added yet. Right-click map to add stops.</div>
         </div>
@@ -213,7 +238,6 @@
     };
     L.control.layers(baseMaps, {}, { position: 'bottomleft' }).addTo(map);
 
-    // Hilfsfunktion für Reverse-Geocoding beim Verschieben per Drag & Drop
     async function reverseGeocode(lat, lng, defaultPrefix = "") {
         try {
             const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
@@ -482,6 +506,17 @@
         await calculateRoute();
     }
 
+    // Funktion zum Löschen ALLER Punkte mit Sicherheitsabfrage
+    async function removeAllAddresses() {
+        if (addresses.length === 0) return;
+        if (confirm("Are you sure you want to delete all stops and via-points?")) {
+            addresses = [];
+            updateAddressUI();
+            await calculateRoute();
+            logDebug("All stops cleared by user.");
+        }
+    }
+
     function dragStart(e, index) { draggedIndex = index; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => e.target.classList.add('dragging'), 0); }
     function dragEnd(e) { e.target.classList.remove('dragging'); draggedIndex = null; }
     function dragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
@@ -599,13 +634,11 @@
             const labelTypeStr = isVia ? 'Route Via-Point' : `Stop`;
             m.bindPopup(`<b>${labelTypeStr}:</b><br>${item.name}<br><button class="map-popup-btn" style="background:#dc3545; margin-top:5px;" onclick="removeAddress(${itemRealIdx}); map.closePopup();">Remove</button>`);
 
-            // Drag event for stops and vias mit automatischem Reverse-Geocoding
             m.on('dragend', async function(event) {
                 const newPos = event.target.getLatLng();
                 addresses[itemRealIdx].lat = newPos.lat;
                 addresses[itemRealIdx].lng = newPos.lng;
                 
-                // Hier wird jetzt die richtige Adresse über Reverse-Geocoding ermittelt statt "Moved Stop"
                 const prefix = isVia ? "Via" : "";
                 addresses[itemRealIdx].name = await reverseGeocode(newPos.lat, newPos.lng, prefix);
 
