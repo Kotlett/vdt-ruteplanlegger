@@ -162,7 +162,7 @@
     function createNumberedMarkerIcon(text, bgColor) {
         return L.divIcon({
             className: 'custom-numbered-marker',
-            html: `<div style="background-color: ${bgColor}; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">${text}</div>`,
+            html: `<div style="background-color: ${bgColor}; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">${text}</div>`,
             iconSize: [28, 28],
             iconAnchor: [14, 14],
             popupAnchor: [0, -15]
@@ -356,9 +356,9 @@
         markersLayer.clearLayers();
         previewMarkerLayer.clearLayers();
 
-        // Depot-Marker mit 'D' (Rot)
+        // Depot-Marker mit 'VD' (Dunkelblau)
         L.marker([depot.lat, depot.lng], {
-            icon: createNumberedMarkerIcon('D', '#dc3545')
+            icon: createNumberedMarkerIcon('VD', '#002855')
         }).addTo(markersLayer).bindPopup(`<b>Start Depot:</b><br>${depot.name}`);
 
         const allWaypoints = [depot, ...validStops];
@@ -371,7 +371,7 @@
         });
 
         if (validStops.length === 0) {
-            map.setView([depot.lat, depot.lng], 9);
+            map.setView([depot.lat, depot.lng], 11);
             if (routeLayer) map.removeLayer(routeLayer);
             document.getElementById('output').innerHTML = `<strong>Start Depot:</strong><br>📍 ${depot.name}<br><br><span style="color:#666;">Add delivery addresses to calculate full route.</span>`;
             document.getElementById('statusText').innerText = "Ready.";
@@ -427,6 +427,22 @@
         }
         document.getElementById('statusText').innerText = "Ready.";
     }
+
+    // Beim Laden der Seite direkt das Start-Depot auf der Karte anzeigen
+    window.addEventListener('DOMContentLoaded', async () => {
+        logDebug("Page loaded, initializing default depot marker...");
+        const depotText = document.getElementById('depotInput').value.trim();
+        const depot = await geocodeAddress(depotText);
+        if (depot) {
+            markersLayer.clearLayers();
+            L.marker([depot.lat, depot.lng], {
+                icon: createNumberedMarkerIcon('VD', '#002855')
+            }).addTo(markersLayer).bindPopup(`<b>Start Depot:</b><br>${depot.name}`);
+            map.setView([depot.lat, depot.lng], 11);
+            document.getElementById('output').innerHTML = `<strong>Start Depot:</strong><br>📍 ${depot.name}<br><br><span style="color:#666;">Add delivery addresses to calculate full route.</span>`;
+            logDebug("Default depot marker set.");
+        }
+    });
 </script>
 </body>
 </html>
