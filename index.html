@@ -66,12 +66,18 @@
         .empty-hint { color: #888; font-style: italic; font-size: 13px; margin-bottom: 8px; }
         .map-link-btn { display: inline-block; background: #ff5722; color: white; text-decoration: none; padding: 8px 12px; border-radius: 4px; font-weight: bold; margin-top: 10px; font-size: 13px; text-align: center; width: calc(100% - 24px); }
         .map-link-btn:hover { background: #e64a19; }
+        
+        .map-popup-btn { background: #28a745; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 6px; }
+        .map-popup-btn:hover { background: #218838; }
+
+        .map-popup-btn-red { background: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 6px; }
+        .map-popup-btn-red:hover { background: #c82333; }
     </style>
 </head>
 <body>
 
 <div id="container">
-    <!-- Linke Spalte: Steuerung & Eingabe -->
+    <!-- Left Column: Controls & Input -->
     <div id="sidebar">
         <h1>VD Transport AS</h1>
         <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Route Planner & OSRM Routing</p>
@@ -82,9 +88,9 @@
             <div id="depotSuggestions" class="suggestions-box"></div>
         </div>
 
-        <label>Delivery Addresses (Drag & Drop)</label>
+        <label>Loading List (First loaded = Last unloaded)</label>
         <div id="addressListContainer">
-            <div class="empty-hint" id="emptyHint">No delivery addresses added yet.</div>
+            <div class="empty-hint" id="emptyHint">No addresses added yet.</div>
         </div>
         
         <div class="input-group">
@@ -96,7 +102,7 @@
         <button class="btn-green" onclick="calculateRoute()">Calculate Route</button>
         
         <div class="status-box">
-            <strong>Status:</strong> <span id="statusText">Ready. Add delivery addresses.</span>
+            <strong>Status:</strong> <span id="statusText">Ready. Add addresses.</span>
         </div>
 
         <div id="output" class="stop-list">
@@ -108,7 +114,7 @@
         </div>
     </div>
 
-    <!-- Rechte Spalte: Eigene Leaflet-Karte -->
+    <!-- Right Column: Leaflet Map -->
     <div id="map-container">
         <h3 style="margin-top: 0; font-size: 16px; color: #444;">Live Route Map (OpenStreetMap / OSRM)</h3>
         <div id="map"></div>
@@ -135,7 +141,7 @@
     let markersLayer = L.layerGroup();
     let previewMarkerLayer = L.layerGroup();
 
-    // Karte initialisieren
+    // Initialize Map
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap'
@@ -154,11 +160,74 @@
 
     const baseMaps = {
         "Standard (OSM)": osmLayer,
-        "Satellit (Esri)": satelliteLayer
+        "Satellite (Esri)": satelliteLayer
     };
     L.control.layers(baseMaps, null, { position: 'bottomleft' }).addTo(map);
 
-    // Funktion zum Erstellen der runden Nummerierungs-Icons
+    // Right-click event on the map to add a tour stop
+    map.on('contextmenu', async function(e) {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+        
+        logDebug(`Right-click on map at [${lat.toFixed(4)}, ${lng.toFixed(4)}]`);
+        
+        const popup = L.popup()
+            .setLatLng(e.latlng)
+            .setContent(`<b>Finding location...</b><br><span style="font-size:11px; color:#666;">Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}</span>`)
+            .openOn(map);
+
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+            const data = await response.json();
+            
+            const addressName = data && data.display_name ? data.display_name : `Coordinates: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            
+            window.addStoppFromMap = async function() {
+                map.closePopup();
+                document.getElementById('statusText').innerText = "Adding location from map...";
+                
+                // Add to tour (maintains tour order)
+                addresses.push({
+                    name: addressName,
+                    lat: lat,
+                    lng: lng
+                });
+                
+                updateAddressUI();
+                await calculateRoute();
+            };
+
+            popup.setContent(`
+                <div style="font-size: 13px; max-width: 220px;">
+                    <b>New Tour Stop:</b><br>
+                    <span style="font-size: 11px; color: #444;">${addressName}</span>
+                    <button class="map-popup-btn" onclick="addStoppFromMap()">+ Add to Tour</button>
+                </div>
+            `);
+        } catch (err) {
+            logDebug(`Reverse geocoding error: ${err.message}`);
+            popup.setContent(`
+                <div style="font-size: 13px;">
+                    <b>Location found</b><br>
+                    <span style="font-size: 11px;">[Address could not be loaded]</span>
+                    <button class="map-popup-btn" onclick="addStoppFromMapCoord(${lat}, ${lng})">+ Add Stop</button>
+                </div>
+            `);
+        }
+    });
+
+    window.addStoppFromMapCoord = async function(lat, lng) {
+        map.closePopup();
+        addresses.push({
+            name: `Coordinates (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+            lat: lat,
+            lng: lng
+        });
+        updateAddressUI();
+        await calculateRoute();
+    };
+
+    // Helper to create numbered marker icons
     function createNumberedMarkerIcon(text, bgColor) {
         return L.divIcon({
             className: 'custom-numbered-marker',
@@ -192,7 +261,7 @@
             L.marker([item.lat, item.lng], {
                 icon: createNumberedMarkerIcon('?', '#ff9800'),
                 opacity: 0.85
-            }).addTo(previewMarkerLayer).bindPopup(`<b>Vorschau:</b><br>${item.name}`).openPopup();
+            }).addTo(previewMarkerLayer).bindPopup(`<b>Preview:</b><br>${item.name}`).openPopup();
             map.setView([item.lat, item.lng], 9);
             logDebug(`Preview selected: ${item.name}`);
         }), 300);
@@ -292,21 +361,30 @@
         }
     }
 
-    async function removeAddress(index) {
-        logDebug(`Removed address at index ${index}`);
-        addresses.splice(index, 1);
+    async function removeAddress(tourIndex) {
+        logDebug(`Removed tour stop at index ${tourIndex}`);
+        addresses.splice(tourIndex, 1);
         updateAddressUI();
         await calculateRoute();
     }
 
-    function dragStart(e, index) { draggedIndex = index; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => e.target.classList.add('dragging'), 0); }
+    // Drag and drop operates on the reversed loading list view
+    function dragStart(e, loadingIndex, totalCount) { 
+        // Convert loading list index back to tour index
+        draggedIndex = totalCount - 1 - loadingIndex; 
+        e.dataTransfer.effectAllowed = 'move'; 
+        setTimeout(() => e.target.classList.add('dragging'), 0); 
+    }
     function dragEnd(e) { e.target.classList.remove('dragging'); draggedIndex = null; }
     function dragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
-    async function drop(e, index) {
+    async function drop(e, loadingIndex, totalCount) {
         e.preventDefault();
-        if (draggedIndex === null || draggedIndex === index) return;
+        if (draggedIndex === null) return;
+        const targetTourIndex = totalCount - 1 - loadingIndex;
+        if (draggedIndex === targetTourIndex) return;
+
         const item = addresses.splice(draggedIndex, 1)[0];
-        addresses.splice(index, 0, item);
+        addresses.splice(targetTourIndex, 0, item);
         updateAddressUI();
         await calculateRoute();
     }
@@ -315,21 +393,29 @@
         const container = document.getElementById('addressListContainer');
         container.innerHTML = "";
         if (addresses.length === 0) {
-            container.innerHTML = `<div class="empty-hint" id="emptyHint">No delivery addresses added yet.</div>`;
+            container.innerHTML = `<div class="empty-hint" id="emptyHint">No addresses added yet.</div>`;
             return;
         }
-        addresses.forEach((addr, index) => {
+
+        // Display loading list in reverse order of the tour (last tour stop = first loaded = top of list)
+        const loadingList = [...addresses].reverse();
+        const totalCount = addresses.length;
+
+        loadingList.forEach((addr, loadingIndex) => {
+            // Original tour index for deletion & mapping
+            const tourIndex = totalCount - 1 - loadingIndex;
+
             container.innerHTML += `
                 <div class="address-item" draggable="true" 
-                     ondragstart="dragStart(event, ${index})" 
+                     ondragstart="dragStart(event, ${loadingIndex}, ${totalCount})" 
                      ondragend="dragEnd(event)" 
                      ondragover="dragOver(event)" 
-                     ondrop="drop(event, ${index})">
+                     ondrop="drop(event, ${loadingIndex}, ${totalCount})">
                     <div class="address-content">
                         <span class="drag-handle">☰</span>
-                        <span><b>${index + 1}.</b> ${addr.name}</span>
+                        <span><b>${loadingIndex + 1}.</b> ${addr.name} <span style="color: #666; font-size: 11px;">(Tour Stop #${tourIndex + 1})</span></span>
                     </div>
-                    <button class="btn-del" onclick="removeAddress(${index})">X</button>
+                    <button class="btn-del" onclick="removeAddress(${tourIndex})">X</button>
                 </div>`;
         });
     }
@@ -356,24 +442,49 @@
         markersLayer.clearLayers();
         previewMarkerLayer.clearLayers();
 
-        // Depot-Marker mit 'VD' (Dunkelblau)
+        // Depot Marker ('VD' - Dark Blue)
         L.marker([depot.lat, depot.lng], {
             icon: createNumberedMarkerIcon('VD', '#002855')
         }).addTo(markersLayer).bindPopup(`<b>Start Depot:</b><br>${depot.name}`);
 
+        // OSRM gets waypoints in exact tour order (Index 0 = Stop 1)
         const allWaypoints = [depot, ...validStops];
         
-        // Stopps mit Nummern 1, 2, 3... (Blau)
+        // Map markers directly corresponding to tour order (1 = first stop on tour, etc.)
         validStops.forEach((stop, idx) => {
-            L.marker([stop.lat, stop.lng], {
+            const marker = L.marker([stop.lat, stop.lng], {
                 icon: createNumberedMarkerIcon(idx + 1, '#007BFF')
-            }).addTo(markersLayer).bindPopup(`<b>Stop ${idx + 1}:</b><br>${stop.name}`);
+            }).addTo(markersLayer);
+
+            marker.bindPopup(`<b>Tour Stop ${idx + 1}:</b><br>${stop.name}<br><span style="font-size:10px; color:#666;">(Right-click to delete)</span>`);
+
+            marker.on('contextmenu', (e) => {
+                L.DomEvent.stopPropagation(e);
+                logDebug(`Right-click on stop ${idx + 1} for deletion prompt.`);
+
+                window[`confirmDelete_${idx}`] = async function() {
+                    map.closePopup();
+                    document.getElementById('statusText').innerText = "Deleting stop...";
+                    await removeAddress(idx);
+                };
+
+                const deletePopup = L.popup()
+                    .setLatLng(e.latlng)
+                    .setContent(`
+                        <div style="font-size: 13px; max-width: 220px;">
+                            <b style="color: #dc3545;">Delete Tour Stop ${idx + 1}?</b><br>
+                            <span style="font-size: 11px; color: #444;">${stop.name}</span>
+                            <button class="map-popup-btn-red" onclick="confirmDelete_${idx}()">Confirm Delete</button>
+                        </div>
+                    `)
+                    .openOn(map);
+            });
         });
 
         if (validStops.length === 0) {
             map.setView([depot.lat, depot.lng], 11);
             if (routeLayer) map.removeLayer(routeLayer);
-            document.getElementById('output').innerHTML = `<strong>Start Depot:</strong><br>📍 ${depot.name}<br><br><span style="color:#666;">Add delivery addresses to calculate full route.</span>`;
+            document.getElementById('output').innerHTML = `<strong>Start Depot:</strong><br>📍 ${depot.name}<br><br><span style="color:#666;">Add addresses to calculate route.</span>`;
             document.getElementById('statusText').innerText = "Ready.";
             return;
         }
@@ -399,6 +510,7 @@
 
                 map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
 
+                // Google Maps link uses tour order
                 let gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(depot.name)}`;
                 if (validStops.length === 1) {
                     gmapsUrl += `&destination=${encodeURIComponent(validStops[0].name)}`;
@@ -409,8 +521,8 @@
                 }
 
                 let html = `<strong>Start Depot:</strong><br>📍 ${depot.name}<br><br>`;
-                html += `<strong>Delivery Stops:</strong><br><ol style="margin: 5px 0 10px 20px; padding: 0;">`;
-                validStops.forEach((stop) => {
+                html += `<strong>Loading List (First loaded = Last unloaded):</strong><br><ol style="margin: 5px 0 10px 20px; padding: 0;">`;
+                [...validStops].reverse().forEach((stop) => {
                     html += `<li>${stop.name}</li>`;
                 });
                 html += `</ol>`;
@@ -428,7 +540,7 @@
         document.getElementById('statusText').innerText = "Ready.";
     }
 
-    // Beim Laden der Seite direkt das Start-Depot auf der Karte anzeigen
+    // Initialize default depot marker on page load
     window.addEventListener('DOMContentLoaded', async () => {
         logDebug("Page loaded, initializing default depot marker...");
         const depotText = document.getElementById('depotInput').value.trim();
@@ -439,7 +551,7 @@
                 icon: createNumberedMarkerIcon('VD', '#002855')
             }).addTo(markersLayer).bindPopup(`<b>Start Depot:</b><br>${depot.name}`);
             map.setView([depot.lat, depot.lng], 11);
-            document.getElementById('output').innerHTML = `<strong>Start Depot:</strong><br>📍 ${depot.name}<br><br><span style="color:#666;">Add delivery addresses to calculate full route.</span>`;
+            document.getElementById('output').innerHTML = `<strong>Start Depot:</strong><br>📍 ${depot.name}<br><br><span style="color:#666;">Add addresses to calculate route.</span>`;
             logDebug("Default depot marker set.");
         }
     });
