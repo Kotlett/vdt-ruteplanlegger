@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VD Transport AS - Truck Route Planner</title>
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f4f9; color: #333; }
@@ -28,10 +29,9 @@
         #map-container { background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); height: 600px; display: flex; flex-direction: column; }
         #map { width: 100%; flex-grow: 1; border-radius: 6px; cursor: crosshair; }
 
-        .input-group { position: relative; margin-bottom: 15px; }
+        .input-group { position: relative; margin-bottom: 12px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
         
-        /* Flexbox für Überschriftzeile mit "Delete All"-Button ganz rechts */
         .list-header-wrapper {
             display: flex;
             justify-content: space-between;
@@ -62,8 +62,12 @@
         }
         .btn-gps:hover { background: #5a6268; }
 
-        input[type="text"] { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        input[type="text"], select { width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; background: #fff; }
         
+        .search-row { display: flex; gap: 6px; align-items: center; }
+        .search-row input[type="text"] { flex-grow: 1; }
+        .search-row select { width: 125px; font-weight: bold; padding: 9px 4px; font-size: 13px; }
+
         .suggestions-box {
             position: absolute; top: 100%; left: 0; right: 0;
             background: white; border: 1px solid #ccc; border-top: none;
@@ -113,13 +117,19 @@
         .map-link-btn { display: inline-block; background: #ff5722; color: white; text-decoration: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; margin-top: 8px; font-size: 14px; text-align: center; width: 100%; box-sizing: border-box; }
         .map-link-btn:hover { background: #e64a19; }
         
-        .map-popup-btn { background: #007BFF; color: white; border: none; padding: 7px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 4px; }
+        .map-popup-btn { background: #007BFF; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 3px; }
         .map-popup-btn:hover { background: #0056b3; }
 
-        .map-popup-btn-via { background: #ff9800; color: white; border: none; padding: 7px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 4px; }
-        .map-popup-btn-via:hover { background: #e68a00; }
+        .map-popup-btn-load { background: #ff9800; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 3px; }
+        .map-popup-btn-load:hover { background: #e68a00; }
 
-        .map-popup-btn-depot { background: #f8f9fa; color: #6c757d; border: 1px solid #ced4da; padding: 4px 8px; border-radius: 4px; font-weight: normal; cursor: pointer; font-size: 11px; width: 100%; margin-top: 4px; }
+        .map-popup-btn-unload { background: #007BFF; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 3px; }
+        .map-popup-btn-unload:hover { background: #0056b3; }
+
+        .map-popup-btn-via { background: #6c757d; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 3px; }
+        .map-popup-btn-via:hover { background: #5a6268; }
+
+        .map-popup-btn-depot { background: #f8f9fa; color: #6c757d; border: 1px solid #ced4da; padding: 4px 8px; border-radius: 4px; font-weight: normal; cursor: pointer; font-size: 11px; width: 100%; margin-top: 3px; }
         .map-popup-btn-depot:hover { background: #e9ecef; color: #495057; }
         
         .info-banner { background: #e2f0d9; border: 1px solid #c8e6b9; color: #274e13; padding: 8px 10px; border-radius: 4px; font-size: 12px; margin-bottom: 12px; }
@@ -133,7 +143,7 @@
         <p style="font-size: 13px; color: #666; margin-bottom: 10px;">Truck Route Planner & Draggable Markers</p>
 
         <div class="info-banner">
-            🖱️ <b>Tip:</b> Drag any marker (depot, stop, or via-point) directly on the map to update the route instantly!
+            🖱️ <b>Tip:</b> Drag any marker on the map to update route instantly! Right-click map for quick options.
         </div>
 
         <div class="input-group">
@@ -146,11 +156,18 @@
         </div>
 
         <div class="input-group" style="margin-bottom: 5px;">
-            <label>Add Unload Stop</label>
-            <input type="text" id="newAddressInput" placeholder="New address (e.g. Ålesund, Bergen)" oninput="handleNewAddressInput(this)" onkeydown="handleKeyDown(event)">
+            <label>Address Search & Stop Type</label>
+            <div class="search-row">
+                <input type="text" id="newAddressInput" placeholder="e.g. Ålesund, Bergen..." oninput="handleNewAddressInput(this)" onkeydown="handleKeyDown(event)">
+                <select id="stopTypeSelect">
+                    <option value="load">🟠 Loading</option>
+                    <option value="unload">🔵 Unloading</option>
+                    <option value="via">⚪ Via</option>
+                </select>
+            </div>
             <div id="newAddressSuggestions" class="suggestions-box"></div>
         </div>
-        <button onclick="addAddress()" style="margin-top: 5px; margin-bottom: 15px;">Add Unload Stop</button>
+        <button onclick="addAddress()" style="margin-top: 5px; margin-bottom: 15px;">Add Stop to Route</button>
 
         <div class="list-header-wrapper">
             <label style="margin-bottom:0;">Tour Stops & Via-Points (Auto-sorted)</label>
@@ -180,7 +197,7 @@
         </div>
 
         <div id="debugBox" class="debug-box">
-            [SYSTEM] Truck Routing System initialized successfully.
+            [SYSTEM] Truck Routing System initialized successfully with custom color schema (Orange/Blue/Grey).
         </div>
     </div>
 </div>
@@ -259,7 +276,7 @@
         }
     }
 
-    // RIGHT-CLICK: Menu for Depot, Via, or Stop
+    // RIGHT-CLICK: Context Menu for Depot, Load, Unload, or Via
     map.on('contextmenu', async function(e) {
         const lat = e.latlng.lat;
         const lng = e.latlng.lng;
@@ -283,9 +300,17 @@
                 cleanName = data && data.display_name ? data.display_name.split(',')[0] : `Point (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
             }
 
-            window.addStopFromMap = async function() {
+            window.addLoadStopFromMap = async function() {
                 map.closePopup();
-                addresses.push({ name: data && data.display_name ? data.display_name : cleanName, lat: lat, lng: lng, type: 'stop' });
+                addresses.push({ name: data && data.display_name ? data.display_name : cleanName, lat: lat, lng: lng, type: 'load' });
+                sortRouteAutomatically();
+                updateAddressUI();
+                await calculateRoute();
+            };
+
+            window.addUnloadStopFromMap = async function() {
+                map.closePopup();
+                addresses.push({ name: data && data.display_name ? data.display_name : cleanName, lat: lat, lng: lng, type: 'unload' });
                 sortRouteAutomatically();
                 updateAddressUI();
                 await calculateRoute();
@@ -311,8 +336,9 @@
                 <div style="font-size: 13px; max-width: 250px;">
                     <span style="font-size: 11px; color: #444; display:block; margin-bottom:5px;"><b>Location:</b><br>${cleanName}</span>
                     <button class="map-popup-btn-depot" onclick="setDepotFromMap()">🏠 Set as Departure</button>
-                    <button class="map-popup-btn-via" onclick="addViaFromMap()">📌 Add Route Via-Point (Shape)</button>
-                    <button class="map-popup-btn" onclick="addStopFromMap()">+ Add Unload Stop</button>
+                    <button class="map-popup-btn-load" onclick="addLoadStopFromMap()">🟠 Add Loading</button>
+                    <button class="map-popup-btn-unload" onclick="addUnloadStopFromMap()">🔵 Add Unloading</button>
+                    <button class="map-popup-btn-via" onclick="addViaFromMap()">⚪ Add Via</button>
                 </div>
             `);
         } catch (err) {
@@ -328,7 +354,7 @@
         const lng = e.latlng.lng;
         
         const statusEl = document.getElementById('statusText');
-        statusEl.innerText = "Adding & sorting via-point...";
+        statusEl.innerText = "Adding via-point...";
         statusEl.className = "pulsing";
 
         try {
@@ -361,7 +387,7 @@
     function createMarkerIcon(text, bgColor) {
         return L.divIcon({
             className: 'custom-numbered-marker',
-            html: `<div style="background-color: ${bgColor}; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">${text}</div>`,
+            html: `<div style="background-color: ${bgColor}; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">${text}</div>`,
             iconSize: [28, 28],
             iconAnchor: [14, 14],
             popupAnchor: [0, -15]
@@ -422,7 +448,7 @@
         debounceTimer = setTimeout(() => fetchSuggestions(query, box, inputElement, (item) => {
             selectedNewAddress = item;
             previewMarkerLayer.clearLayers();
-            L.marker([item.lat, item.lng], { icon: createMarkerIcon('?', '#ff9800'), opacity: 0.85 }).addTo(previewMarkerLayer).bindPopup(`<b>Preview:</b><br>${item.name}`).openPopup();
+            L.marker([item.lat, item.lng], { icon: createMarkerIcon('?', '#6c757d'), opacity: 0.85 }).addTo(previewMarkerLayer).bindPopup(`<b>Preview:</b><br>${item.name}`).openPopup();
             map.setView([item.lat, item.lng], 10);
         }), 300);
     }
@@ -431,7 +457,7 @@
 
     async function fetchSuggestions(query, boxElement, inputElement, onSelectCallback) {
         const statusEl = document.getElementById('statusText');
-        statusEl.innerText = "Searching address suggestions...";
+        statusEl.innerText = "Searching suggestions...";
         statusEl.className = "pulsing";
 
         const normalizedQuery = normalizeScandinavianInput(query);
@@ -447,7 +473,8 @@
                     div.innerText = item.display_name;
                     div.onclick = async () => {
                         inputElement.value = item.display_name;
-                        const obj = { name: item.display_name, lat: parseFloat(item.lat), lng: parseFloat(item.lon), type: 'stop' };
+                        const typeVal = document.getElementById('stopTypeSelect').value;
+                        const obj = { name: item.display_name, lat: parseFloat(item.lat), lng: parseFloat(item.lon), type: typeVal };
                         boxElement.innerHTML = "";
                         if (onSelectCallback) await onSelectCallback(obj);
                     };
@@ -485,10 +512,12 @@
     async function addAddress() {
         const input = document.getElementById('newAddressInput');
         const val = input.value.trim();
+        const typeVal = document.getElementById('stopTypeSelect').value;
         if (val === "") return;
+        
         let obj = selectedNewAddress ? selectedNewAddress : await geocodeAddress(val);
         if (obj) {
-            obj.type = 'stop';
+            obj.type = typeVal;
             addresses.push(obj);
             input.value = "";
             selectedNewAddress = null;
@@ -506,7 +535,6 @@
         await calculateRoute();
     }
 
-    // Funktion zum Löschen ALLER Punkte mit Sicherheitsabfrage
     async function removeAllAddresses() {
         if (addresses.length === 0) return;
         if (confirm("Are you sure you want to delete all stops and via-points?")) {
@@ -536,11 +564,25 @@
             container.innerHTML = `<div class="empty-hint" id="emptyHint">No stops added yet. Right-click map to add stops.</div>`;
             return;
         }
-        let stopCounter = 1;
+        
+        let loadCounter = 1;
+        let unloadCounter = 1;
+
         addresses.forEach((addr, tourIndex) => {
-            const isVia = addr.type === 'via';
-            const badgeColor = isVia ? '#ff9800' : '#007BFF';
-            const labelText = isVia ? 'Via-Point' : `Stop #${stopCounter++}`;
+            let labelText = "";
+            let badgeColor = "#007BFF";
+
+            if (addr.type === 'load') {
+                badgeColor = "#ff9800"; // Warn-Orange
+                labelText = `Loading #${loadCounter++}`;
+            } else if (addr.type === 'unload') {
+                badgeColor = "#007BFF"; // Blue
+                labelText = `Unloading #${unloadCounter++}`;
+            } else {
+                badgeColor = "#6c757d"; // Grey
+                labelText = `Via`;
+            }
+
             container.innerHTML += `
                 <div class="address-item" draggable="true" 
                      ondragstart="dragStart(event, ${tourIndex})" 
@@ -598,7 +640,7 @@
         markersLayer.clearLayers();
         previewMarkerLayer.clearLayers();
 
-        // 1. DEPOT MARKER (DRAGGABLE)
+        // 1. DEPOT MARKER
         const depotMarker = L.marker([depotData.lat, depotData.lng], { 
             icon: createMarkerIcon('VD', '#002855'),
             draggable: true 
@@ -617,21 +659,33 @@
             await calculateRoute();
         });
 
-        // 2. STOP & VIA MARKERS (DRAGGABLE)
+        // 2. STOP & VIA MARKERS
         const validItems = addresses.filter(s => s && !isNaN(s.lat) && !isNaN(s.lng));
-        let stopCounter = 1;
+        
+        let loadCounter = 1;
+        let unloadCounter = 1;
 
         validItems.forEach((item, idx) => {
             const itemRealIdx = idx;
-            const isVia = item.type === 'via';
-            const iconMarker = isVia ? createMarkerIcon('Via', '#ff9800') : createMarkerIcon(stopCounter++, '#007BFF');
+            let iconMarker;
+            let labelTypeStr = "";
+
+            if (item.type === 'load') {
+                iconMarker = createMarkerIcon(`L${loadCounter++}`, '#ff9800'); // Warn-Orange
+                labelTypeStr = 'Loading';
+            } else if (item.type === 'unload') {
+                iconMarker = createMarkerIcon(`U${unloadCounter++}`, '#007BFF'); // Blue
+                labelTypeStr = 'Unloading';
+            } else {
+                iconMarker = createMarkerIcon('Via', '#6c757d'); // Grey
+                labelTypeStr = 'Via';
+            }
 
             const m = L.marker([item.lat, item.lng], { 
                 icon: iconMarker,
                 draggable: true 
             }).addTo(markersLayer);
 
-            const labelTypeStr = isVia ? 'Route Via-Point' : `Stop`;
             m.bindPopup(`<b>${labelTypeStr}:</b><br>${item.name}<br><button class="map-popup-btn" style="background:#dc3545; margin-top:5px;" onclick="removeAddress(${itemRealIdx}); map.closePopup();">Remove</button>`);
 
             m.on('dragend', async function(event) {
@@ -639,7 +693,7 @@
                 addresses[itemRealIdx].lat = newPos.lat;
                 addresses[itemRealIdx].lng = newPos.lng;
                 
-                const prefix = isVia ? "Via" : "";
+                const prefix = item.type === 'via' ? "Via" : (item.type === 'load' ? "Loading" : "Unloading");
                 addresses[itemRealIdx].name = await reverseGeocode(newPos.lat, newPos.lng, prefix);
 
                 updateAddressUI();
@@ -694,10 +748,10 @@
 
                 gmapContainer.innerHTML = `<a class="map-link-btn" href="${gmapsUrl}" target="_blank">Open Route in Google Maps ↗</a>`;
 
-                let html = `<strong>🚚 Truck Ramp Loading List (LIFO):</strong><br><ol style="margin: 5px 0 10px 20px; padding: 0;">`;
-                [...actualStops].reverse().forEach((stop, idx, arr) => {
-                    const originalStopNum = arr.length - idx;
-                    html += `<li><b>Stop #${originalStopNum}:</b> ${stop.name}</li>`;
+                let html = `<strong>🚚 Tour Stops Sequence:</strong><br><ol style="margin: 5px 0 10px 20px; padding: 0;">`;
+                validItems.filter(i => i.type !== 'via').forEach((stop) => {
+                    const typeLabel = stop.type === 'load' ? '<b style="color:#ff9800;">[LOADING]</b>' : '<b style="color:#007BFF;">[UNLOADING]</b>';
+                    html += `<li>${typeLabel} ${stop.name}</li>`;
                 });
                 html += `</ol>`;
 
