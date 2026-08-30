@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VD Transport AS - LKW Route Planner</title>
+    <title>VD Transport AS - Truck Route Planner</title>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -102,7 +102,7 @@
 <div id="container">
     <div id="sidebar">
         <h1>VD Transport AS</h1>
-        <p style="font-size: 13px; color: #666; margin-bottom: 15px;">LKW Route Planner & Tour Optimization</p>
+        <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Truck Route Planner & Tour Optimization</p>
 
         <div class="input-group">
             <label>Departure (Depot / Start)</label>
@@ -137,7 +137,7 @@
         </div>
 
         <div id="debugBox" class="debug-box">
-            [SYSTEM] LKW System initialized successfully.
+            [SYSTEM] Truck Routing System initialized successfully.
         </div>
     </div>
 
@@ -513,7 +513,7 @@
 
                 gmapContainer.innerHTML = `<a class="map-link-btn" href="${gmapsUrl}" target="_blank">Open Route in Google Maps ↗</a>`;
 
-                let html = `<strong>🚚 LKW Ramp Loading List (LIFO):</strong><br><ol style="margin: 5px 0 10px 20px; padding: 0;">`;
+                let html = `<strong>🚚 Truck Ramp Loading List (LIFO):</strong><br><ol style="margin: 5px 0 10px 20px; padding: 0;">`;
                 [...validStops].reverse().forEach((stop, idx, arr) => {
                     const originalStopNum = arr.length - idx;
                     html += `<li><b>Stop #${originalStopNum}:</b> ${stop.name}</li>`;
