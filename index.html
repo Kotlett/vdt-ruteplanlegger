@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VD Transport AS - Route Planner</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f4f9; color: #333; }
+        h1 { color: #222; font-size: 22px; margin-top: 0; }
+        
+        #container { 
+            display: grid; 
+            grid-template-columns: 420px 1fr; 
+            gap: 20px; 
+            align-items: start; 
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+        @media (max-width: 900px) {
+            #container { grid-template-columns: 1fr; }
+        }
+
+        #sidebar { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: relative; z-index: 10; }
+        #map-container { background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); height: 650px; display: flex; flex-direction: column; }
+        
+        #map { width: 100%; flex-grow: 1; border-radius: 6px; }
+
+        .input-group { position: relative; margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
+        input[type="text"] { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        
+        .suggestions-box {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: white; border: 1px solid #ccc; border-top: none;
+            border-radius: 0 0 4px 4px; max-height: 150px; overflow-y: auto; z-index: 9999;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .suggestion-item { padding: 8px 10px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #eee; }
+        .suggestion-item:hover { background: #f1f1f1; }
+
+        button { background: #007BFF; color: white; border: none; padding: 10px 15px; font-size: 15px; border-radius: 5px; cursor: pointer; width: 100%; margin-top: 5px; }
+        button:hover { background: #0056b3; }
+        .btn-green { background: #28a745; margin-top: 15px; font-weight: bold; }
+        .btn-green:hover { background: #218838; }
+        
+        .status-box { margin-top: 15px; background: #e9ecef; padding: 10px 12px; border-radius: 5px; font-size: 13px; }
+        .stop-list { margin-top: 10px; background: #e9ecef; padding: 12px; border-radius: 5px; font-size: 13px; line-height: 1.5; }
+        .debug-box { margin-top: 15px; background: #1e1e1e; color: #00ff00; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 11px; max-height: 120px; overflow-y: auto; }
+
+        .address-item { 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: #fff; padding: 8px 10px; margin-bottom: 6px; 
+            border-radius: 4px; border: 1px solid #ddd; font-size: 13px; 
+            cursor: grab; user-select: none;
+        }
+        .address-item:active { cursor: grabbing; }
+        .address-item.dragging { opacity: 0.4; background: #e2e8f0; }
+        
+        .address-content { display: flex; align-items: center; gap: 8px; flex-grow: 1; }
+        .drag-handle { font-weight: bold; color: #666; cursor: grab; }
+        .btn-del { background: #dc3545; width: auto; padding: 3px 8px; font-size: 11px; margin: 0; }
+        .btn-del:hover { background: #c82333; }
+
+        .empty-hint { color: #888; font-style: italic; font-size: 13px; margin-bottom: 8px; }
+        .map-link-btn { display: inline-block; background: #ff5722; color: white; text-decoration: none; padding: 8px 12px; border-radius: 4px; font-weight: bold; margin-top: 10px; font-size: 13px; text-align: center; width: calc(100% - 24px); }
+        .map-link-btn:hover { background: #e64a19; }
+    </style>
+</head>
+<body>
+
+<div id="container">
+    <!-- Linke Spalte: Steuerung & Eingabe -->
+    <div id="sidebar">
+        <h1>VD Transport AS</h1>
+        <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Route Planner & OSRM Routing</p>
+
+        <div class="input-group">
+            <label>Start Depot</label>
+            <input type="text" id="depotInput" value="Sørestrandvegen 39, 6220 Straumgjerde" oninput="handleDepotInput(this)">
+            <div id="depotSuggestions" class="suggestions-box"></div>
+        </div>
+
+        <label>Delivery Addresses (Drag & Drop)</label>
+        <div id="addressListContainer">
+            <div class="empty-hint" id="emptyHint">No delivery addresses added yet.</div>
+        </div>
+        
+        <div class="input-group">
+            <input type="text" id="newAddressInput" placeholder="New address (e.g. Ålesund, Bergen)" oninput="handleNewAddressInput(this)" onkeydown="handleKeyDown(event)">
+            <div id="newAddressSuggestions" class="suggestions-box"></div>
+        </div>
+        <button onclick="addAddress()">Add Address</button>
+
+        <button class="btn-green" onclick="calculateRoute()">Calculate Route</button>
+        
+        <div class="status-box">
+            <strong>Status:</strong> <span id="statusText">Ready. Add delivery addresses.</span>
+        </div>
+
+        <div id="output" class="stop-list">
+            <span style="color:#666;">No route calculated yet.</span>
+        </div>
+
+        <div id="debugBox" class="debug-box">
+            [SYSTEM] System initialized with Leaflet map.
+        </div>
+    </div>
+
+    <!-- Rechte Spalte: Eigene Leaflet-Karte -->
+    <div id="map-container">
+        <h3 style="margin-top: 0; font-size: 16px; color: #444;">Live Route Map (OpenStreetMap / OSRM)</h3>
+        <div id="map"></div>
+    </div>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    function logDebug(message) {
+        const box = document.getElementById('debugBox');
+        if (!box) return;
+        const timeStr = new Date().toLocaleTimeString();
+        box.innerHTML += `<br>[${timeStr}] ${message}`;
+        box.scrollTop = box.scrollHeight;
+        console.log(`[DEBUG] ${message}`);
+    }
+
+    let addresses = []; 
+    let debounceTimer = null;
+    let selectedNewAddress = null;
+    let draggedIndex = null;
+    let routeLayer = null;
+    let markersLayer = L.layerGroup();
+    let previewMarkerLayer = L.layerGroup();
+
+    // Karte initialisieren
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+    });
+
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri'
+    });
+
+    const map = L.map('map', {
+        center: [62.3342430, 6.5856790],
+        zoom: 8,
+        layers: [osmLayer, markersLayer, previewMarkerLayer]
+    });
+
+    const baseMaps = {
+        "Standard (OSM)": osmLayer,
+        "Satellit (Esri)": satelliteLayer
+    };
+    L.control.layers(baseMaps, null, { position: 'bottomleft' }).addTo(map);
+
+    // Funktion zum Erstellen der runden Nummerierungs-Icons
+    function createNumberedMarkerIcon(text, bgColor) {
+        return L.divIcon({
+            className: 'custom-numbered-marker',
+            html: `<div style="background-color: ${bgColor}; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">${text}</div>`,
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+            popupAnchor: [0, -15]
+        });
+    }
+
+    function handleDepotInput(inputElement) {
+        clearTimeout(debounceTimer);
+        const query = inputElement.value.trim();
+        const box = document.getElementById('depotSuggestions');
+        if (query.length < 3) { box.innerHTML = ""; return; }
+        debounceTimer = setTimeout(() => fetchSuggestions(query, box, inputElement, null), 300);
+    }
+
+    function handleNewAddressInput(inputElement) {
+        clearTimeout(debounceTimer);
+        if (selectedNewAddress && inputElement.value !== selectedNewAddress.name) {
+            selectedNewAddress = null;
+            previewMarkerLayer.clearLayers();
+        }
+        const query = inputElement.value.trim();
+        const box = document.getElementById('newAddressSuggestions');
+        if (query.length < 3) { box.innerHTML = ""; return; }
+        debounceTimer = setTimeout(() => fetchSuggestions(query, box, inputElement, (item) => {
+            selectedNewAddress = item;
+            previewMarkerLayer.clearLayers();
+            L.marker([item.lat, item.lng], {
+                icon: createNumberedMarkerIcon('?', '#ff9800'),
+                opacity: 0.85
+            }).addTo(previewMarkerLayer).bindPopup(`<b>Vorschau:</b><br>${item.name}`).openPopup();
+            map.setView([item.lat, item.lng], 9);
+            logDebug(`Preview selected: ${item.name}`);
+        }), 300);
+    }
+
+    function handleKeyDown(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            addAddress();
+        }
+    }
+
+    async function fetchSuggestions(query, boxElement, inputElement, onSelectCallback) {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=no,se&q=${encodeURIComponent(query)}&limit=5`;
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            boxElement.innerHTML = "";
+            if (data && data.length > 0) {
+                data.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'suggestion-item';
+                    div.innerText = item.display_name;
+                    div.onclick = () => {
+                        inputElement.value = item.display_name;
+                        const obj = {
+                            name: item.display_name,
+                            lat: parseFloat(item.lat),
+                            lng: parseFloat(item.lon)
+                        };
+                        boxElement.innerHTML = "";
+                        if (onSelectCallback) onSelectCallback(obj);
+                    };
+                    boxElement.appendChild(div);
+                });
+            }
+        } catch (e) {
+            logDebug(`Autocomplete error: ${e.message}`);
+        }
+    }
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.input-group')) {
+            document.querySelectorAll('.suggestions-box').forEach(box => box.innerHTML = "");
+        }
+    });
+
+    async function geocodeAddress(address) {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=no,se&q=${encodeURIComponent(address)}&limit=1`;
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            if (data && data.length > 0) {
+                return {
+                    name: data[0].display_name,
+                    lat: parseFloat(data[0].lat),
+                    lng: parseFloat(data[0].lon)
+                };
+            }
+        } catch (e) {
+            logDebug(`Geocoding error: ${e.message}`);
+        }
+        return null;
+    }
+
+    async function addAddress() {
+        const input = document.getElementById('newAddressInput');
+        const val = input.value.trim();
+        if (val === "") return;
+
+        document.getElementById('statusText').innerText = "Adding location...";
+        let obj = null;
+
+        try {
+            if (selectedNewAddress) {
+                obj = selectedNewAddress;
+            } else {
+                obj = await geocodeAddress(val);
+            }
+
+            if (obj) {
+                addresses.push(obj);
+                input.value = "";
+                selectedNewAddress = null;
+                previewMarkerLayer.clearLayers();
+                document.getElementById('newAddressSuggestions').innerHTML = "";
+                updateAddressUI();
+                await calculateRoute();
+            } else {
+                alert("Location not found.");
+                document.getElementById('statusText').innerText = "Ready.";
+            }
+        } catch (e) {
+            logDebug(`Add error: ${e.message}`);
+            alert("Error adding address.");
+            document.getElementById('statusText').innerText = "Ready.";
+        }
+    }
+
+    async function removeAddress(index) {
+        logDebug(`Removed address at index ${index}`);
+        addresses.splice(index, 1);
+        updateAddressUI();
+        await calculateRoute();
+    }
+
+    function dragStart(e, index) { draggedIndex = index; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => e.target.classList.add('dragging'), 0); }
+    function dragEnd(e) { e.target.classList.remove('dragging'); draggedIndex = null; }
+    function dragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+    async function drop(e, index) {
+        e.preventDefault();
+        if (draggedIndex === null || draggedIndex === index) return;
+        const item = addresses.splice(draggedIndex, 1)[0];
+        addresses.splice(index, 0, item);
+        updateAddressUI();
+        await calculateRoute();
+    }
+
+    function updateAddressUI() {
+        const container = document.getElementById('addressListContainer');
+        container.innerHTML = "";
+        if (addresses.length === 0) {
+            container.innerHTML = `<div class="empty-hint" id="emptyHint">No delivery addresses added yet.</div>`;
+            return;
+        }
+        addresses.forEach((addr, index) => {
+            container.innerHTML += `
+                <div class="address-item" draggable="true" 
+                     ondragstart="dragStart(event, ${index})" 
+                     ondragend="dragEnd(event)" 
+                     ondragover="dragOver(event)" 
+                     ondrop="drop(event, ${index})">
+                    <div class="address-content">
+                        <span class="drag-handle">☰</span>
+                        <span><b>${index + 1}.</b> ${addr.name}</span>
+                    </div>
+                    <button class="btn-del" onclick="removeAddress(${index})">X</button>
+                </div>`;
+        });
+    }
+
+    async function calculateRoute() {
+        const depotText = document.getElementById('depotInput').value.trim();
+        if (!depotText) {
+            alert("Please provide a start depot!");
+            return;
+        }
+
+        document.getElementById('statusText').innerText = "Calculating route...";
+        logDebug(`Starting route calculation...`);
+        
+        let depot = await geocodeAddress(depotText);
+        if (!depot || isNaN(depot.lat) || isNaN(depot.lng)) {
+            alert("Start depot could not be found.");
+            document.getElementById('statusText').innerText = "Ready.";
+            return;
+        }
+
+        const validStops = addresses.filter(s => s && !isNaN(s.lat) && !isNaN(s.lng));
+        
+        markersLayer.clearLayers();
+        previewMarkerLayer.clearLayers();
+
+        // Depot-Marker mit 'D' (Rot)
+        L.marker([depot.lat, depot.lng], {
+            icon: createNumberedMarkerIcon('D', '#dc3545')
+        }).addTo(markersLayer).bindPopup(`<b>Start Depot:</b><br>${depot.name}`);
+
+        const allWaypoints = [depot, ...validStops];
+        
+        // Stopps mit Nummern 1, 2, 3... (Blau)
+        validStops.forEach((stop, idx) => {
+            L.marker([stop.lat, stop.lng], {
+                icon: createNumberedMarkerIcon(idx + 1, '#007BFF')
+            }).addTo(markersLayer).bindPopup(`<b>Stop ${idx + 1}:</b><br>${stop.name}`);
+        });
+
+        if (validStops.length === 0) {
+            map.setView([depot.lat, depot.lng], 9);
+            if (routeLayer) map.removeLayer(routeLayer);
+            document.getElementById('output').innerHTML = `<strong>Start Depot:</strong><br>📍 ${depot.name}<br><br><span style="color:#666;">Add delivery addresses to calculate full route.</span>`;
+            document.getElementById('statusText').innerText = "Ready.";
+            return;
+        }
+
+        const coordsString = allWaypoints.map(wp => `${wp.lng},${wp.lat}`).join(';');
+        const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
+        
+        logDebug(`Sending OSRM request...`);
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            if (data.code === "Ok" && data.routes && data.routes.length > 0) {
+                const route = data.routes[0];
+                const distanceKm = (route.distance / 1000).toFixed(1);
+                const durationHours = (route.duration / 3600).toFixed(1);
+                logDebug(`OSRM route loaded: ${distanceKm} km`);
+
+                if (routeLayer) map.removeLayer(routeLayer);
+                
+                routeLayer = L.geoJSON(route.geometry, {
+                    style: { color: '#007BFF', weight: 5, opacity: 0.8 }
+                }).addTo(map);
+
+                map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+
+                let gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(depot.name)}`;
+                if (validStops.length === 1) {
+                    gmapsUrl += `&destination=${encodeURIComponent(validStops[0].name)}`;
+                } else {
+                    gmapsUrl += `&destination=${encodeURIComponent(validStops[validStops.length - 1].name)}`;
+                    const intermediate = validStops.slice(0, -1).map(s => encodeURIComponent(s.name)).join('|');
+                    gmapsUrl += `&waypoints=${intermediate}`;
+                }
+
+                let html = `<strong>Start Depot:</strong><br>📍 ${depot.name}<br><br>`;
+                html += `<strong>Delivery Stops:</strong><br><ol style="margin: 5px 0 10px 20px; padding: 0;">`;
+                validStops.forEach((stop) => {
+                    html += `<li>${stop.name}</li>`;
+                });
+                html += `</ol>`;
+                html += `<hr style="border:0; border-top:1px solid #ccc; margin:10px 0;">`;
+                html += `🚗 <b>Total Distance:</b> ${distanceKm} km | ⏱️ <b>Time:</b> ${durationHours} hrs`;
+                html += `<br><a class="map-link-btn" href="${gmapsUrl}" target="_blank">Open Full Route in Google Maps ↗</a>`;
+
+                document.getElementById('output').innerHTML = html;
+            } else {
+                logDebug(`OSRM routing failed.`);
+            }
+        } catch (e) {
+            logDebug(`OSRM network error: ${e.message}`);
+        }
+        document.getElementById('statusText').innerText = "Ready.";
+    }
+</script>
+</body>
+</html>
