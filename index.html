@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VD Transport AS - Truck Route Planner</title>
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f4f9; color: #333; }
@@ -23,8 +22,11 @@
         }
 
         #sidebar { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: relative; z-index: 10; }
-        #map-container { background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); height: 650px; display: flex; flex-direction: column; }
         
+        /* Rechte Spalte: Enthält Karte und darunter das Debug-Fenster */
+        #right-column { display: flex; flex-direction: column; gap: 20px; }
+        
+        #map-container { background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); height: 600px; display: flex; flex-direction: column; }
         #map { width: 100%; flex-grow: 1; border-radius: 6px; cursor: crosshair; }
 
         .input-group { position: relative; margin-bottom: 15px; }
@@ -70,7 +72,9 @@
         }
 
         .stop-list { margin-top: 10px; background: #e9ecef; padding: 12px; border-radius: 5px; font-size: 13px; line-height: 1.5; }
-        .debug-box { margin-top: 15px; background: #1e1e1e; color: #00ff00; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 11px; max-height: 120px; overflow-y: auto; }
+        
+        /* Debug-Box direkt unter der Karte platziert */
+        .debug-box { background: #1e1e1e; color: #00ff00; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 11px; max-height: 120px; overflow-y: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
 
         .address-item { 
             display: flex; justify-content: space-between; align-items: center; 
@@ -145,15 +149,17 @@
         <div id="output" class="stop-list">
             <span style="color:#666;">No route calculated yet.</span>
         </div>
+    </div>
+
+    <div id="right-column">
+        <div id="map-container">
+            <h3 style="margin-top: 0; font-size: 16px; color: #444;">Live Route Map (Drag markers freely)</h3>
+            <div id="map"></div>
+        </div>
 
         <div id="debugBox" class="debug-box">
             [SYSTEM] Truck Routing System initialized successfully.
         </div>
-    </div>
-
-    <div id="map-container">
-        <h3 style="margin-top: 0; font-size: 16px; color: #444;">Live Route Map (Drag markers freely)</h3>
-        <div id="map"></div>
     </div>
 </div>
 
