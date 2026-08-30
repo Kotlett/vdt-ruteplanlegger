@@ -25,7 +25,7 @@
         #sidebar { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: relative; z-index: 10; }
         #map-container { background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); height: 650px; display: flex; flex-direction: column; }
         
-        #map { width: 100%; flex-grow: 1; border-radius: 6px; }
+        #map { width: 100%; flex-grow: 1; border-radius: 6px; cursor: crosshair; }
 
         .input-group { position: relative; margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
@@ -81,20 +81,26 @@
         .address-item:active { cursor: grabbing; }
         .address-item.dragging { opacity: 0.4; background: #e2e8f0; }
         
-        .address-content { display: flex; align-items: center; gap: 8px; flex-grow: 1; }
-        .drag-handle { font-weight: bold; color: #666; cursor: grab; }
-        .btn-del { background: #dc3545; width: auto; padding: 3px 8px; font-size: 11px; margin: 0; }
+        .address-content { display: flex; align-items: center; gap: 8px; flex-grow: 1; overflow: hidden; }
+        .address-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .drag-handle { font-weight: bold; color: #666; cursor: grab; flex-shrink: 0; }
+        .btn-del { background: #dc3545; width: auto; padding: 3px 8px; font-size: 11px; margin: 0; flex-shrink: 0; }
         .btn-del:hover { background: #c82333; }
 
         .empty-hint { color: #888; font-style: italic; font-size: 13px; margin-bottom: 8px; }
         .map-link-btn { display: inline-block; background: #ff5722; color: white; text-decoration: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; margin-top: 8px; font-size: 14px; text-align: center; width: 100%; box-sizing: border-box; }
         .map-link-btn:hover { background: #e64a19; }
         
-        .map-popup-btn { background: #28a745; color: white; border: none; padding: 9px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 13px; width: 100%; margin-top: 6px; }
-        .map-popup-btn:hover { background: #218838; }
+        .map-popup-btn { background: #007BFF; color: white; border: none; padding: 7px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 4px; }
+        .map-popup-btn:hover { background: #0056b3; }
+
+        .map-popup-btn-via { background: #ff9800; color: white; border: none; padding: 7px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 4px; }
+        .map-popup-btn-via:hover { background: #e68a00; }
 
         .map-popup-btn-depot { background: #f8f9fa; color: #6c757d; border: 1px solid #ced4da; padding: 4px 8px; border-radius: 4px; font-weight: normal; cursor: pointer; font-size: 11px; width: 100%; margin-top: 4px; }
         .map-popup-btn-depot:hover { background: #e9ecef; color: #495057; }
+        
+        .info-banner { background: #e2f0d9; border: 1px solid #c8e6b9; color: #274e13; padding: 8px 10px; border-radius: 4px; font-size: 12px; margin-bottom: 12px; }
     </style>
 </head>
 <body>
@@ -102,7 +108,11 @@
 <div id="container">
     <div id="sidebar">
         <h1>VD Transport AS</h1>
-        <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Truck Route Planner & Tour Optimization</p>
+        <p style="font-size: 13px; color: #666; margin-bottom: 10px;">Truck Route Planner & Draggable Markers</p>
+
+        <div class="info-banner">
+            🖱️ <b>Tip:</b> Drag any marker (depot, stop, or via-point) directly on the map to update the route instantly!
+        </div>
 
         <div class="input-group">
             <label>Departure (Depot / Start)</label>
@@ -114,22 +124,22 @@
         </div>
 
         <div class="input-group" style="margin-bottom: 5px;">
-            <label>Add Tour Stop / Unload Point</label>
+            <label>Add Unload Stop</label>
             <input type="text" id="newAddressInput" placeholder="New address (e.g. Ålesund, Bergen)" oninput="handleNewAddressInput(this)" onkeydown="handleKeyDown(event)">
             <div id="newAddressSuggestions" class="suggestions-box"></div>
         </div>
-        <button onclick="addAddress()" style="margin-top: 5px; margin-bottom: 15px;">Add Address</button>
+        <button onclick="addAddress()" style="margin-top: 5px; margin-bottom: 15px;">Add Unload Stop</button>
 
-        <label>Tour Stops (Drag to reorder)</label>
+        <label>Tour Stops & Via-Points (Auto-sorted)</label>
         <div id="addressListContainer">
-            <div class="empty-hint" id="emptyHint">No addresses added yet.</div>
+            <div class="empty-hint" id="emptyHint">No stops added yet. Right-click map to add stops.</div>
         </div>
 
-        <button class="btn-green" onclick="optimizeAndStrortRouteSafe()">Optimize & Sort Route (TSP)</button>
+        <button class="btn-green" onclick="optimizeAndSortRoute()">Optimize All Stops & Vias (TSP)</button>
         <div id="gmapLinkContainer"></div>
         
         <div class="status-box">
-            <strong>Status:</strong> <span id="statusText">Ready. Add addresses.</span>
+            <strong>Status:</strong> <span id="statusText">Ready. Drag markers or right-click map.</span>
         </div>
 
         <div id="output" class="stop-list">
@@ -142,7 +152,7 @@
     </div>
 
     <div id="map-container">
-        <h3 style="margin-top: 0; font-size: 16px; color: #444;">Live Route Map</h3>
+        <h3 style="margin-top: 0; font-size: 16px; color: #444;">Live Route Map (Drag markers freely)</h3>
         <div id="map"></div>
     </div>
 </div>
@@ -169,6 +179,7 @@
     }
 
     let addresses = []; 
+    let depotData = { name: "Sørestrandvegen 39, 6220 Straumgjerde", lat: 62.3342430, lng: 6.5856790 };
     let debounceTimer = null;
     let depotDebounceTimer = null;
     let selectedNewAddress = null;
@@ -199,6 +210,7 @@
     };
     L.control.layers(baseMaps, {}, { position: 'bottomleft' }).addTo(map);
 
+    // RIGHT-CLICK: Menu for Depot, Via, or Stop
     map.on('contextmenu', async function(e) {
         const lat = e.latlng.lat;
         const lng = e.latlng.lng;
@@ -208,28 +220,50 @@
             .openOn(map);
 
         try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
             const data = await response.json();
-            const addressName = data && data.display_name ? data.display_name : `Coordinates: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
             
-            window.addStoppFromMap = async function() {
+            let cleanName = "";
+            if (data && data.address) {
+                const road = data.address.road || data.address.pedestrian || data.address.suburb || "";
+                const city = data.address.city || data.address.town || data.address.village || data.address.municipality || "";
+                if (road && city) cleanName = `${road}, ${city}`;
+                else if (road) cleanName = road;
+            }
+            if (!cleanName || cleanName.length < 3) {
+                cleanName = data && data.display_name ? data.display_name.split(',')[0] : `Point (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+            }
+
+            window.addStopFromMap = async function() {
                 map.closePopup();
-                addresses.push({ name: addressName, lat: lat, lng: lng });
+                addresses.push({ name: data && data.display_name ? data.display_name : cleanName, lat: lat, lng: lng, type: 'stop' });
+                sortRouteAutomatically();
+                updateAddressUI();
+                await calculateRoute();
+            };
+
+            window.addViaFromMap = async function() {
+                map.closePopup();
+                addresses.push({ name: `Via: ${cleanName}`, lat: lat, lng: lng, type: 'via' });
+                sortRouteAutomatically();
                 updateAddressUI();
                 await calculateRoute();
             };
 
             window.setDepotFromMap = async function() {
                 map.closePopup();
-                document.getElementById('depotInput').value = addressName;
+                depotData = { name: data && data.display_name ? data.display_name : cleanName, lat: lat, lng: lng };
+                document.getElementById('depotInput').value = depotData.name;
+                sortRouteAutomatically();
                 await calculateRoute();
             };
 
             popup.setContent(`
-                <div style="font-size: 13px; max-width: 220px;">
-                    <span style="font-size: 11px; color: #444; display:block; margin-bottom:5px;"><b>Location:</b><br>${addressName}</span>
+                <div style="font-size: 13px; max-width: 250px;">
+                    <span style="font-size: 11px; color: #444; display:block; margin-bottom:5px;"><b>Location:</b><br>${cleanName}</span>
                     <button class="map-popup-btn-depot" onclick="setDepotFromMap()">🏠 Set as Departure</button>
-                    <button class="map-popup-btn" onclick="addStoppFromMap()">+ Add Tour Stop</button>
+                    <button class="map-popup-btn-via" onclick="addViaFromMap()">📌 Add Route Via-Point (Shape)</button>
+                    <button class="map-popup-btn" onclick="addStopFromMap()">+ Add Unload Stop</button>
                 </div>
             `);
         } catch (err) {
@@ -237,7 +271,45 @@
         }
     });
 
-    function createNumberedMarkerIcon(text, bgColor) {
+    // LEFT-CLICK: Automatically adds a via-point
+    map.on('click', async function(e) {
+        if (document.querySelector('.leaflet-popup')) return;
+
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+        
+        const statusEl = document.getElementById('statusText');
+        statusEl.innerText = "Adding & sorting via-point...";
+        statusEl.className = "pulsing";
+
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=17&addressdetails=1`);
+            const data = await response.json();
+            
+            let streetName = "";
+            if (data && data.address) {
+                const road = data.address.road || data.address.pedestrian || data.address.suburb || "";
+                const city = data.address.city || data.address.town || data.address.village || "";
+                if (road && city) streetName = `${road}, ${city}`;
+                else if (road) streetName = road;
+            }
+            if (!streetName) {
+                streetName = `Route Point (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+            }
+
+            addresses.push({ name: `Via: ${streetName}`, lat: lat, lng: lng, type: 'via' });
+            sortRouteAutomatically();
+            updateAddressUI();
+            await calculateRoute();
+        } catch (err) {
+            addresses.push({ name: `Via: (${lat.toFixed(3)}, ${lng.toFixed(3)})`, lat: lat, lng: lng, type: 'via' });
+            sortRouteAutomatically();
+            updateAddressUI();
+            await calculateRoute();
+        }
+    });
+
+    function createMarkerIcon(text, bgColor) {
         return L.divIcon({
             className: 'custom-numbered-marker',
             html: `<div style="background-color: ${bgColor}; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">${text}</div>`,
@@ -258,12 +330,16 @@
             try {
                 const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
                 const data = await response.json();
-                document.getElementById('depotInput').value = data.display_name || `GPS: ${lat}, ${lng}`;
+                depotData = { name: data.display_name || `GPS: ${lat}, ${lng}`, lat: lat, lng: lng };
+                document.getElementById('depotInput').value = depotData.name;
                 statusEl.className = "";
+                sortRouteAutomatically();
                 await calculateRoute();
             } catch (err) {
-                document.getElementById('depotInput').value = `GPS: ${lat}, ${lng}`;
+                depotData = { name: `GPS: ${lat}, ${lng}`, lat: lat, lng: lng };
+                document.getElementById('depotInput').value = depotData.name;
                 statusEl.className = "";
+                sortRouteAutomatically();
                 await calculateRoute();
             }
         });
@@ -274,8 +350,15 @@
         const query = inputElement.value.trim();
         const box = document.getElementById('depotSuggestions');
         if (query.length < 3) { box.innerHTML = ""; return; }
-        debounceTimer = setTimeout(() => fetchSuggestions(query, box, inputElement, async () => { await calculateRoute(); }), 300);
-        depotDebounceTimer = setTimeout(async () => { await calculateRoute(); }, 800);
+        debounceTimer = setTimeout(() => fetchSuggestions(query, box, inputElement, async (item) => {
+            depotData = item;
+            sortRouteAutomatically();
+            await calculateRoute();
+        }), 300);
+        depotDebounceTimer = setTimeout(async () => {
+            let res = await geocodeAddress(inputElement.value);
+            if(res) { depotData = res; sortRouteAutomatically(); await calculateRoute(); }
+        }, 800);
     }
 
     function handleNewAddressInput(inputElement) {
@@ -290,7 +373,7 @@
         debounceTimer = setTimeout(() => fetchSuggestions(query, box, inputElement, (item) => {
             selectedNewAddress = item;
             previewMarkerLayer.clearLayers();
-            L.marker([item.lat, item.lng], { icon: createNumberedMarkerIcon('?', '#ff9800'), opacity: 0.85 }).addTo(previewMarkerLayer).bindPopup(`<b>Preview:</b><br>${item.name}`).openPopup();
+            L.marker([item.lat, item.lng], { icon: createMarkerIcon('?', '#ff9800'), opacity: 0.85 }).addTo(previewMarkerLayer).bindPopup(`<b>Preview:</b><br>${item.name}`).openPopup();
             map.setView([item.lat, item.lng], 10);
         }), 300);
     }
@@ -315,7 +398,7 @@
                     div.innerText = item.display_name;
                     div.onclick = async () => {
                         inputElement.value = item.display_name;
-                        const obj = { name: item.display_name, lat: parseFloat(item.lat), lng: parseFloat(item.lon) };
+                        const obj = { name: item.display_name, lat: parseFloat(item.lat), lng: parseFloat(item.lon), type: 'stop' };
                         boxElement.innerHTML = "";
                         if (onSelectCallback) await onSelectCallback(obj);
                     };
@@ -338,24 +421,15 @@
     });
 
     async function geocodeAddress(address) {
-        const statusEl = document.getElementById('statusText');
-        statusEl.innerText = "Geocoding address...";
-        statusEl.className = "pulsing";
-
         const normalizedAddress = normalizeScandinavianInput(address);
         const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=no,se&q=${encodeURIComponent(normalizedAddress)}&limit=1`;
         try {
             const response = await fetch(url);
             const data = await response.json();
-            statusEl.className = "";
             if (data && data.length > 0) {
                 return { name: data[0].display_name, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lng || data[0].lon) };
             }
-        } catch (e) { 
-            logDebug(`Geocoding error: ${e.message}`); 
-            statusEl.className = "";
-        }
-        statusEl.className = "";
+        } catch (e) { logDebug(`Geocoding error: ${e.message}`); }
         return null;
     }
 
@@ -365,11 +439,13 @@
         if (val === "") return;
         let obj = selectedNewAddress ? selectedNewAddress : await geocodeAddress(val);
         if (obj) {
+            obj.type = 'stop';
             addresses.push(obj);
             input.value = "";
             selectedNewAddress = null;
             previewMarkerLayer.clearLayers();
             document.getElementById('newAddressSuggestions').innerHTML = "";
+            sortRouteAutomatically();
             updateAddressUI();
             await calculateRoute();
         } else { alert("Location not found."); }
@@ -397,10 +473,14 @@
         const container = document.getElementById('addressListContainer');
         container.innerHTML = "";
         if (addresses.length === 0) {
-            container.innerHTML = `<div class="empty-hint" id="emptyHint">No addresses added yet.</div>`;
+            container.innerHTML = `<div class="empty-hint" id="emptyHint">No stops added yet. Right-click map to add stops.</div>`;
             return;
         }
+        let stopCounter = 1;
         addresses.forEach((addr, tourIndex) => {
+            const isVia = addr.type === 'via';
+            const badgeColor = isVia ? '#ff9800' : '#007BFF';
+            const labelText = isVia ? 'Via-Point' : `Stop #${stopCounter++}`;
             container.innerHTML += `
                 <div class="address-item" draggable="true" 
                      ondragstart="dragStart(event, ${tourIndex})" 
@@ -409,7 +489,7 @@
                      ondrop="drop(event, ${tourIndex})">
                     <div class="address-content">
                         <span class="drag-handle">☰</span>
-                        <span><b>Stop #${tourIndex + 1}:</b> ${addr.name}</span>
+                        <span class="address-text"><b style="color: ${badgeColor};">[${labelText}]</b> ${addr.name}</span>
                     </div>
                     <button class="btn-del" onclick="removeAddress(${tourIndex})">X</button>
                 </div>`;
@@ -424,61 +504,92 @@
         return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
     }
 
-    async function optimizeAndStrortRouteSafe() {
-        if (addresses.length <= 1) { alert("Add at least 2 addresses."); return; }
-        const depotText = document.getElementById('depotInput').value.trim();
-        let depot = await geocodeAddress(depotText);
-        if (!depot) return;
+    async function sortRouteAutomatically() {
+        if (addresses.length === 0) return;
+        let pool = [...addresses];
+        let sorted = [];
+        let current = depotData;
 
-        let unvisited = [...addresses];
-        let optimized = [];
-        let currentPoint = depot;
-
-        while (unvisited.length > 0) {
+        while (pool.length > 0) {
             let nearestIdx = 0;
             let minDist = Infinity;
-            unvisited.forEach((pt, idx) => {
-                const dist = getDistanceFromLatLonInKm(currentPoint.lat, currentPoint.lng, pt.lat, pt.lng);
+            pool.forEach((pt, idx) => {
+                const dist = getDistanceFromLatLonInKm(current.lat, current.lng, pt.lat, pt.lng);
                 if (dist < minDist) { minDist = dist; nearestIdx = idx; }
             });
-            optimized.push(unvisited.splice(nearestIdx, 1)[0]);
-            currentPoint = optimized[optimized.length - 1];
+            let nextPoint = pool.splice(nearestIdx, 1)[0];
+            sorted.push(nextPoint);
+            current = nextPoint;
         }
+        addresses = sorted;
+    }
 
-        addresses = optimized;
+    async function optimizeAndSortRoute() {
+        await sortRouteAutomatically();
         updateAddressUI();
         await calculateRoute();
     }
 
     async function calculateRoute() {
-        const depotText = document.getElementById('depotInput').value.trim();
-        if (!depotText) return;
-        
         const statusEl = document.getElementById('statusText');
         statusEl.innerText = "Calculating route...";
         statusEl.className = "pulsing";
 
-        let depot = await geocodeAddress(depotText);
-        if (!depot) {
-            statusEl.innerText = "Error: Depot not found.";
-            statusEl.className = "";
-            return;
-        }
-
-        const validStops = addresses.filter(s => s && !isNaN(s.lat) && !isNaN(s.lng));
         markersLayer.clearLayers();
         previewMarkerLayer.clearLayers();
 
-        L.marker([depot.lat, depot.lng], { icon: createNumberedMarkerIcon('VD', '#002855') }).addTo(markersLayer).bindPopup(`<b>Departure:</b><br>${depot.name}`);
+        // 1. DEPOT MARKER (DRAGGABLE)
+        const depotMarker = L.marker([depotData.lat, depotData.lng], { 
+            icon: createMarkerIcon('VD', '#002855'),
+            draggable: true 
+        }).addTo(markersLayer);
 
-        const allWaypoints = [depot, ...validStops];
-        validStops.forEach((stop, idx) => {
-            L.marker([stop.lat, stop.lng], { icon: createNumberedMarkerIcon(idx + 1, '#007BFF') }).addTo(markersLayer).bindPopup(`<b>Stop ${idx + 1}:</b><br>${stop.name}`);
+        depotMarker.bindPopup(`<b>Departure (Depot):</b><br>${depotData.name}<br><span style="font-size:11px; color:#666;">(Drag marker to move depot)</span>`);
+        
+        depotMarker.on('dragend', async function(e) {
+            const pos = e.target.getLatLng();
+            depotData.lat = pos.lat;
+            depotData.lng = pos.lng;
+            depotData.name = `Moved Depot (${pos.lat.toFixed(3)}, ${pos.lng.toFixed(3)})`;
+            document.getElementById('depotInput').value = depotData.name;
+            await sortRouteAutomatically();
+            updateAddressUI();
+            await calculateRoute();
+        });
+
+        // 2. STOP & VIA MARKERS (DRAGGABLE)
+        const validItems = addresses.filter(s => s && !isNaN(s.lat) && !isNaN(s.lng));
+        let stopCounter = 1;
+
+        validItems.forEach((item, idx) => {
+            const itemRealIdx = idx;
+            const isVia = item.type === 'via';
+            const iconMarker = isVia ? createMarkerIcon('Via', '#ff9800') : createMarkerIcon(stopCounter++, '#007BFF');
+
+            const m = L.marker([item.lat, item.lng], { 
+                icon: iconMarker,
+                draggable: true 
+            }).addTo(markersLayer);
+
+            const labelTypeStr = isVia ? 'Route Via-Point' : `Stop`;
+            m.bindPopup(`<b>${labelTypeStr}:</b><br>${item.name}<br><button class="map-popup-btn" style="background:#dc3545; margin-top:5px;" onclick="removeAddress(${itemRealIdx}); map.closePopup();">Remove</button>`);
+
+            // Drag event for stops and vias
+            m.on('dragend', async function(event) {
+                const newPos = event.target.getLatLng();
+                addresses[itemRealIdx].lat = newPos.lat;
+                addresses[itemRealIdx].lng = newPos.lng;
+                addresses[itemRealIdx].name = (isVia ? "Via: Moved Point " : "Moved Stop ") + `(${newPos.lat.toFixed(3)}, ${newPos.lng.toFixed(3)})`;
+                updateAddressUI();
+                await calculateRoute();
+            });
         });
 
         const gmapContainer = document.getElementById('gmapLinkContainer');
-        if (validStops.length === 0) {
-            map.setView([depot.lat, depot.lng], 11);
+        const actualStops = validItems.filter(i => i.type !== 'via');
+
+        if (validItems.length === 0) {
+            map.setView([depotData.lat, depotData.lng], 11);
             if (routeLayer) map.removeLayer(routeLayer);
             document.getElementById('output').innerHTML = `<span style="color:#666;">Add addresses to calculate route.</span>`;
             gmapContainer.innerHTML = "";
@@ -487,8 +598,12 @@
             return;
         }
 
+        const allWaypoints = [depotData, ...validItems];
         const coordsString = allWaypoints.map(wp => `${wp.lng},${wp.lat}`).join(';');
-        const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
+        const radiusesArr = allWaypoints.map((wp, idx) => idx === 0 ? '50' : (wp.type === 'via' ? '300' : '50'));
+        const radiusesStr = radiusesArr.join(';');
+
+        const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson&radiuses=${radiusesStr}&continue_straight=true`;
         
         try {
             const response = await fetch(url);
@@ -500,30 +615,40 @@
 
                 if (routeLayer) map.removeLayer(routeLayer);
                 routeLayer = L.geoJSON(route.geometry, { style: { color: '#002855', weight: 6, opacity: 0.85 } }).addTo(map);
-                map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
 
-                let gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${depot.lat},${depot.lng}&travelmode=driving`;
-                if (validStops.length === 1) {
-                    gmapsUrl += `&destination=${validStops[0].lat},${validStops[0].lng}`;
-                } else {
-                    gmapsUrl += `&destination=${validStops[validStops.length - 1].lat},${validStops[validStops.length - 1].lng}`;
-                    const intermediate = validStops.slice(0, -1).map(s => `${s.lat},${s.lng}`).join('|');
+                if (!window.hasFittedBoundsOnce) {
+                    map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+                    window.hasFittedBoundsOnce = true;
+                }
+
+                let gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${depotData.lat},${depotData.lng}&travelmode=driving`;
+                if (actualStops.length === 1) {
+                    gmapsUrl += `&destination=${actualStops[0].lat},${actualStops[0].lng}`;
+                } else if (actualStops.length > 1) {
+                    gmapsUrl += `&destination=${actualStops[actualStops.length - 1].lat},${actualStops[actualStops.length - 1].lng}`;
+                    const intermediate = actualStops.slice(0, -1).map(s => `${s.lat},${s.lng}`).join('|');
                     gmapsUrl += `&waypoints=${intermediate}`;
                 }
 
                 gmapContainer.innerHTML = `<a class="map-link-btn" href="${gmapsUrl}" target="_blank">Open Route in Google Maps ↗</a>`;
 
                 let html = `<strong>🚚 Truck Ramp Loading List (LIFO):</strong><br><ol style="margin: 5px 0 10px 20px; padding: 0;">`;
-                [...validStops].reverse().forEach((stop, idx, arr) => {
+                [...actualStops].reverse().forEach((stop, idx, arr) => {
                     const originalStopNum = arr.length - idx;
                     html += `<li><b>Stop #${originalStopNum}:</b> ${stop.name}</li>`;
                 });
                 html += `</ol>`;
+
+                const viaCount = addresses.filter(a => a.type === 'via').length;
+                if (viaCount > 0) {
+                    html += `<div style="font-size: 11px; color: #666; margin-top: 5px;">📌 Includes ${viaCount} via-point(s).</div>`;
+                }
+
                 html += `<hr style="border:0; border-top:1px solid #ccc; margin:10px 0;">`;
                 html += `🚛 <b>Total Distance:</b> ${distanceKm} km | ⏱️ <b>Est. Time:</b> ${durationHours} hrs`;
 
                 document.getElementById('output').innerHTML = html;
-                statusEl.innerText = "Ready.";
+                statusEl.innerText = "Ready. Drag markers or right-click map.";
                 statusEl.className = "";
             }
         } catch (e) { 
@@ -538,9 +663,9 @@
         const depotText = document.getElementById('depotInput').value.trim();
         const depot = await geocodeAddress(depotText);
         if (depot) {
-            markersLayer.clearLayers();
-            L.marker([depot.lat, depot.lng], { icon: createNumberedMarkerIcon('VD', '#002855') }).addTo(markersLayer);
+            depotData = depot;
             map.setView([depot.lat, depot.lng], 11);
+            await calculateRoute();
             logDebug("Default depot set successfully.");
         }
     });
