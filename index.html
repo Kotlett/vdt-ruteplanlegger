@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VD Transport AS - Route Planner</title>
+    <title>VD Transport AS - Auto-Route & Restriction Viewer</title>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -29,6 +29,17 @@
 
         .input-group { position: relative; margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
+        
+        .departure-wrapper { display: flex; gap: 5px; }
+        .departure-wrapper input[type="text"] { flex-grow: 1; }
+        
+        .btn-gps { 
+            background: #6c757d; color: white; border: none; padding: 0 12px; 
+            font-size: 16px; border-radius: 4px; cursor: pointer; display: flex; 
+            align-items: center; justify-content: center; margin-top: 0; width: auto; 
+        }
+        .btn-gps:hover { background: #5a6268; }
+
         input[type="text"] { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
         
         .suggestions-box {
@@ -67,14 +78,11 @@
         .map-link-btn { display: inline-block; background: #ff5722; color: white; text-decoration: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; margin-top: 8px; font-size: 14px; text-align: center; width: 100%; box-sizing: border-box; }
         .map-link-btn:hover { background: #e64a19; }
         
-        .map-popup-btn { background: #28a745; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 6px; }
+        .map-popup-btn { background: #28a745; color: white; border: none; padding: 9px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 13px; width: 100%; margin-top: 6px; }
         .map-popup-btn:hover { background: #218838; }
 
-        .map-popup-btn-depot { background: #002855; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 6px; }
-        .map-popup-btn-depot:hover { background: #001d3d; }
-
-        .map-popup-btn-red { background: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 6px; }
-        .map-popup-btn-red:hover { background: #c82333; }
+        .map-popup-btn-depot { background: #f8f9fa; color: #6c757d; border: 1px solid #ced4da; padding: 4px 8px; border-radius: 4px; font-weight: normal; cursor: pointer; font-size: 11px; width: 100%; margin-top: 4px; }
+        .map-popup-btn-depot:hover { background: #e9ecef; color: #495057; }
     </style>
 </head>
 <body>
@@ -83,24 +91,28 @@
     <!-- Left Column: Controls & Input -->
     <div id="sidebar">
         <h1>VD Transport AS</h1>
-        <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Route Planner & OSRM Routing</p>
+        <p style="font-size: 13px; color: #666; margin-bottom: 15px;">LKW Route Planner & Auto-Restrictions</p>
 
         <div class="input-group">
-            <label>Departure</label>
-            <input type="text" id="depotInput" value="Sørestrandvegen 39, 6220 Straumgjerde" oninput="handleDepotInput(this)">
+            <label>Departure (Depot / Start)</label>
+            <div class="departure-wrapper">
+                <input type="text" id="depotInput" value="Sørestrandvegen 39, 6220 Straumgjerde" oninput="handleDepotInput(this)">
+                <button class="btn-gps" onclick="setDepartureToCurrentGPS()" title="Use current GPS location">📍</button>
+            </div>
             <div id="depotSuggestions" class="suggestions-box"></div>
         </div>
+
+        <div class="input-group" style="margin-bottom: 5px;">
+            <label>Add Tour Stop / Unload Point</label>
+            <input type="text" id="newAddressInput" placeholder="New address (e.g. Ålesund, Bergen)" oninput="handleNewAddressInput(this)" onkeydown="handleKeyDown(event)">
+            <div id="newAddressSuggestions" class="suggestions-box"></div>
+        </div>
+        <button onclick="addAddress()" style="margin-top: 5px; margin-bottom: 15px;">Add Address</button>
 
         <label>Tour Stops (Drag to reorder)</label>
         <div id="addressListContainer">
             <div class="empty-hint" id="emptyHint">No addresses added yet.</div>
         </div>
-        
-        <div class="input-group">
-            <input type="text" id="newAddressInput" placeholder="New address (e.g. Ålesund, Bergen)" oninput="handleNewAddressInput(this)" onkeydown="handleKeyDown(event)">
-            <div id="newAddressSuggestions" class="suggestions-box"></div>
-        </div>
-        <button onclick="addAddress()">Add Address</button>
 
         <button class="btn-green" onclick="optimizeAndSortRoute()">Optimize & Sort Route (TSP)</button>
         <div id="gmapLinkContainer"></div>
@@ -114,13 +126,13 @@
         </div>
 
         <div id="debugBox" class="debug-box">
-            [SYSTEM] System initialized with Leaflet map.
+            [SYSTEM] LKW System initialized successfully.
         </div>
     </div>
 
     <!-- Right Column: Leaflet Map -->
     <div id="map-container">
-        <h3 style="margin-top: 0; font-size: 16px; color: #444;">Live Route Map (OpenStreetMap / OSRM)</h3>
+        <h3 style="margin-top: 0; font-size: 16px; color: #444;">Live Route Map & Route Restrictions</h3>
         <div id="map"></div>
     </div>
 </div>
@@ -137,6 +149,16 @@
         console.log(`[DEBUG] ${message}`);
     }
 
+    function normalizeScandinavianInput(str) {
+        if (!str) return "";
+        return str
+            .replace(/[øöõȯọỏốồổỗộớờởỡợőōøǿ]/gi, 'o')
+            .replace(/[æäàáâãåąāăǎǟǡǣǻȁȃạảấầẩẫậắằẳẵặǻ]/gi, 'a')
+            .replace(/[üúùûűūųǔǖǘǚǜȕȗủứừửữự]/gi, 'u')
+            .replace(/[éèêëēėęěȅȇẹẻẽếềểễệ]/gi, 'e')
+            .replace(/[íìîïīįĭǐȉȋỉĩị]/gi, 'i');
+    }
+
     let addresses = []; 
     let debounceTimer = null;
     let depotDebounceTimer = null;
@@ -145,58 +167,169 @@
     let routeLayer = null;
     let markersLayer = L.layerGroup();
     let previewMarkerLayer = L.layerGroup();
+    let restrictionLayer = L.layerGroup();
 
-    // Initialize Map
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        attribution: '&copy; OpenStreetMap'
+        attribution: '© OpenStreetMap'
     });
 
     const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 19,
-        attribution: 'Tiles &copy; Esri'
+        attribution: 'Tiles © Esri'
     });
 
     const map = L.map('map', {
         center: [62.3342430, 6.5856790],
-        zoom: 8,
-        layers: [osmLayer, markersLayer, previewMarkerLayer]
+        zoom: 9,
+        layers: [osmLayer, markersLayer, previewMarkerLayer, restrictionLayer]
     });
 
     const baseMaps = {
         "Standard (OSM)": osmLayer,
         "Satellite (Esri)": satelliteLayer
     };
-    L.control.layers(baseMaps, null, { position: 'bottomleft' }).addTo(map);
+    L.control.layers(baseMaps, { "LKW-Warnungen auf Route": restrictionLayer }, { position: 'bottomleft' }).addTo(map);
 
-    // Right-click event on the map
+    async function loadRouteRestrictions(routeCoordinates) {
+        restrictionLayer.clearLayers();
+        if (!routeCoordinates || routeCoordinates.length === 0) return;
+
+        document.getElementById('statusText').innerText = "Scanning route for truck restrictions...";
+        logDebug("Scanning precise route corridor (tight filter)...");
+
+        // Extrem enger Korridor: Sehr eng anliegende Koordinatenkette für Overpass (reduziert Nebenstraßen-Rauschen in Städten)
+        let polyString = "";
+        const step = Math.max(1, Math.floor(routeCoordinates.length / 80)); // Noch dichtere Abtastung
+        for (let i = 0; i < routeCoordinates.length; i += step) {
+            polyString += `${routeCoordinates[i][1]} ${routeCoordinates[i][0]} `;
+        }
+        const last = routeCoordinates[routeCoordinates.length - 1];
+        polyString += `${last[1]} ${last[0]}`;
+
+        const overpassQuery = `
+            [out:json][timeout:25];
+            (
+              node(poly:"${polyString}")["maxheight"];
+              way(poly:"${polyString}")["maxheight"];
+              node(poly:"${polyString}")["maxweight"];
+              way(poly:"${polyString}")["maxweight"];
+              node(poly:"${polyString}")["maxwidth"];
+              way(poly:"${polyString}")["maxwidth"];
+              node(poly:"${polyString}")["hgv"="no"];
+              way(poly:"${polyString}")["hgv"="no"];
+            );
+            out body;
+            >;
+            out skel qt;
+        `;
+
+        try {
+            const response = await fetch('https://overpass-api.de/api/interpreter', {
+                method: 'POST',
+                body: overpassQuery
+            });
+
+            const contentType = response.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new Error("Overpass API returned non-JSON response.");
+            }
+
+            const data = await response.json();
+            let count = 0;
+            if (data && data.elements) {
+                const nodeMap = {};
+                data.elements.forEach(el => {
+                    if (el.type === 'node') nodeMap[el.id] = { lat: el.lat, lon: el.lon };
+                });
+
+                data.elements.forEach(el => {
+                    let lat = el.lat;
+                    let lon = el.lon;
+                    if (el.type === 'way' && el.nodes && el.nodes.length > 0) {
+                        const firstNode = nodeMap[el.nodes[0]];
+                        if (firstNode) { lat = firstNode.lat; lon = firstNode.lon; }
+                    }
+
+                    if (lat && lon && el.tags) {
+                        count++;
+                        let desc = [];
+                        let signHtml = '';
+
+                        if (el.tags.maxheight) {
+                            desc.push(`<b>Höhenbegrenzung:</b> ${el.tags.maxheight}`);
+                            // Verkehrsschild: Rundes weißes Schild mit rotem Rand und Höhenpiktogramm
+                            signHtml = `
+                                <div style="width: 32px; height: 32px; background: white; border: 3px solid #d9534f; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.4);" title="Höhenbegrenzung: ${el.tags.maxheight}">
+                                    <span style="font-size: 8px; line-height: 8px; font-weight: bold; color: #111;">${el.tags.maxheight}</span>
+                                    <span style="font-size: 9px; line-height: 9px;">↕️</span>
+                                </div>`;
+                        } else if (el.tags.maxweight) {
+                            desc.push(`<b>Tonnage-Limit:</b> ${el.tags.maxweight} t`);
+                            // Verkehrsschild: Rundes weißes Schild mit rotem Rand und Tonnageangabe
+                            signHtml = `
+                                <div style="width: 32px; height: 32px; background: white; border: 3px solid #d9534f; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.4);" title="Tonnage-Limit: ${el.tags.maxweight} t">
+                                    <span style="font-size: 8px; line-height: 8px; font-weight: bold; color: #111;">${el.tags.maxweight}t</span>
+                                    <span style="font-size: 9px; line-height: 9px;">⚖️</span>
+                                </div>`;
+                        } else if (el.tags.maxwidth) {
+                            desc.push(`<b>Breitenlimit:</b> ${el.tags.maxwidth}`);
+                            // Verkehrsschild: Rundes weißes Schild mit rotem Rand und Breitenpiktogramm
+                            signHtml = `
+                                <div style="width: 32px; height: 32px; background: white; border: 3px solid #d9534f; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.4);" title="Breitenlimit: ${el.tags.maxwidth}">
+                                    <span style="font-size: 7px; line-height: 7px; font-weight: bold; color: #111;">${el.tags.maxwidth}</span>
+                                    <span style="font-size: 9px; line-height: 9px;">↔️</span>
+                                </div>`;
+                        } else if (el.tags.hgv === 'no') {
+                            desc.push(`<b>LKW-Verbot</b>`);
+                            // Verkehrsschild: Roter Kreis mit weißem Balken (Klassisches LKW-Verbotsschild-Symbol)
+                            signHtml = `
+                                <div style="width: 32px; height: 32px; background: white; border: 3px solid #d9534f; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.4);" title="LKW-Verbot">
+                                    <span style="font-size: 16px; line-height: 16px;">🚫</span>
+                                </div>`;
+                        }
+
+                        if (signHtml) {
+                            const customIcon = L.divIcon({
+                                className: 'custom-sign-marker',
+                                html: signHtml,
+                                iconSize: [32, 32],
+                                iconAnchor: [16, 16],
+                                popupAnchor: [0, -16]
+                            });
+
+                            L.marker([lat, lon], { icon: customIcon })
+                              .addTo(restrictionLayer)
+                              .bindPopup(`<b>⚠️ Routen-Beschränkung:</b><br>${desc.join('<br>')}<br><span style="font-size:10px; color:#666;">OpenStreetMap Data</span>`);
+                        }
+                    }
+                });
+            }
+
+            logDebug(`Found ${count} strict route restrictions.`);
+            document.getElementById('statusText').innerText = `Ready. Found ${count} route warnings.`;
+        } catch (err) {
+            logDebug(`Restriction scan skipped/error: ${err.message}`);
+            document.getElementById('statusText').innerText = "Ready (Restriction check bypassed due to server limit).";
+        }
+    }
+
     map.on('contextmenu', async function(e) {
         const lat = e.latlng.lat;
         const lng = e.latlng.lng;
-        
-        logDebug(`Right-click on map at [${lat.toFixed(4)}, ${lng.toFixed(4)}]`);
-        
         const popup = L.popup()
             .setLatLng(e.latlng)
-            .setContent(`<b>Finding location...</b><br><span style="font-size:11px; color:#666;">Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}</span>`)
+            .setContent(`<b>Finding location...</b>`)
             .openOn(map);
 
         try {
             const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
             const data = await response.json();
-            
             const addressName = data && data.display_name ? data.display_name : `Coordinates: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
             
             window.addStoppFromMap = async function() {
                 map.closePopup();
-                document.getElementById('statusText').innerText = "Adding location from map...";
-                
-                addresses.push({
-                    name: addressName,
-                    lat: lat,
-                    lng: lng
-                });
-                
+                addresses.push({ name: addressName, lat: lat, lng: lng });
                 updateAddressUI();
                 await calculateRoute();
             };
@@ -204,40 +337,20 @@
             window.setDepotFromMap = async function() {
                 map.closePopup();
                 document.getElementById('depotInput').value = addressName;
-                document.getElementById('statusText').innerText = "Updating departure...";
                 await calculateRoute();
             };
 
             popup.setContent(`
                 <div style="font-size: 13px; max-width: 220px;">
-                    <b>Location Options:</b><br>
-                    <span style="font-size: 11px; color: #444;">${addressName}</span>
-                    <button class="map-popup-btn" onclick="addStoppFromMap()">+ Add Tour Stop</button>
+                    <span style="font-size: 11px; color: #444; display:block; margin-bottom:5px;"><b>Location:</b><br>${addressName}</span>
                     <button class="map-popup-btn-depot" onclick="setDepotFromMap()">🏠 Set as Departure</button>
+                    <button class="map-popup-btn" onclick="addStoppFromMap()">+ Add Tour Stop</button>
                 </div>
             `);
         } catch (err) {
             logDebug(`Reverse geocoding error: ${err.message}`);
-            popup.setContent(`
-                <div style="font-size: 13px;">
-                    <b>Location found</b><br>
-                    <span style="font-size: 11px;">[Address could not be loaded]</span>
-                    <button class="map-popup-btn" onclick="addStoppFromMapCoord(${lat}, ${lng})">+ Add Stop</button>
-                </div>
-            `);
         }
     });
-
-    window.addStoppFromMapCoord = async function(lat, lng) {
-        map.closePopup();
-        addresses.push({
-            name: `Coordinates (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
-            lat: lat,
-            lng: lng
-        });
-        updateAddressUI();
-        await calculateRoute();
-    };
 
     function createNumberedMarkerIcon(text, bgColor) {
         return L.divIcon({
@@ -249,19 +362,31 @@
         });
     }
 
+    async function setDepartureToCurrentGPS() {
+        if (!navigator.geolocation) return;
+        document.getElementById('statusText').innerText = "Getting GPS location...";
+        navigator.geolocation.getCurrentPosition(async (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                const data = await response.json();
+                document.getElementById('depotInput').value = data.display_name || `GPS: ${lat}, ${lng}`;
+                await calculateRoute();
+            } catch (err) {
+                document.getElementById('depotInput').value = `GPS: ${lat}, ${lng}`;
+                await calculateRoute();
+            }
+        });
+    }
+
     function handleDepotInput(inputElement) {
         clearTimeout(depotDebounceTimer);
         const query = inputElement.value.trim();
         const box = document.getElementById('depotSuggestions');
         if (query.length < 3) { box.innerHTML = ""; return; }
-        
-        debounceTimer = setTimeout(() => fetchSuggestions(query, box, inputElement, async () => {
-            await calculateRoute();
-        }), 300);
-
-        depotDebounceTimer = setTimeout(async () => {
-            await calculateRoute();
-        }, 800);
+        debounceTimer = setTimeout(() => fetchSuggestions(query, box, inputElement, async () => { await calculateRoute(); }), 300);
+        depotDebounceTimer = setTimeout(async () => { await calculateRoute(); }, 800);
     }
 
     function handleNewAddressInput(inputElement) {
@@ -276,24 +401,16 @@
         debounceTimer = setTimeout(() => fetchSuggestions(query, box, inputElement, (item) => {
             selectedNewAddress = item;
             previewMarkerLayer.clearLayers();
-            L.marker([item.lat, item.lng], {
-                icon: createNumberedMarkerIcon('?', '#ff9800'),
-                opacity: 0.85
-            }).addTo(previewMarkerLayer).bindPopup(`<b>Preview:</b><br>${item.name}`).openPopup();
-            map.setView([item.lat, item.lng], 9);
-            logDebug(`Preview selected: ${item.name}`);
+            L.marker([item.lat, item.lng], { icon: createNumberedMarkerIcon('?', '#ff9800'), opacity: 0.85 }).addTo(previewMarkerLayer).bindPopup(`<b>Preview:</b><br>${item.name}`).openPopup();
+            map.setView([item.lat, item.lng], 10);
         }), 300);
     }
 
-    function handleKeyDown(event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            addAddress();
-        }
-    }
+    function handleKeyDown(event) { if (event.key === 'Enter') { event.preventDefault(); addAddress(); } }
 
     async function fetchSuggestions(query, boxElement, inputElement, onSelectCallback) {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=no,se&q=${encodeURIComponent(query)}&limit=5`;
+        const normalizedQuery = normalizeScandinavianInput(query);
+        const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=no,se&q=${encodeURIComponent(normalizedQuery)}&limit=5`;
         try {
             const response = await fetch(url);
             const data = await response.json();
@@ -305,20 +422,14 @@
                     div.innerText = item.display_name;
                     div.onclick = async () => {
                         inputElement.value = item.display_name;
-                        const obj = {
-                            name: item.display_name,
-                            lat: parseFloat(item.lat),
-                            lng: parseFloat(item.lon)
-                        };
+                        const obj = { name: item.display_name, lat: parseFloat(item.lat), lng: parseFloat(item.lon) };
                         boxElement.innerHTML = "";
                         if (onSelectCallback) await onSelectCallback(obj);
                     };
                     boxElement.appendChild(div);
                 });
             }
-        } catch (e) {
-            logDebug(`Autocomplete error: ${e.message}`);
-        }
+        } catch (e) { logDebug(`Autocomplete error: ${e.message}`); }
     }
 
     document.addEventListener('click', (e) => {
@@ -328,20 +439,15 @@
     });
 
     async function geocodeAddress(address) {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=no,se&q=${encodeURIComponent(address)}&limit=1`;
+        const normalizedAddress = normalizeScandinavianInput(address);
+        const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=no,se&q=${encodeURIComponent(normalizedAddress)}&limit=1`;
         try {
             const response = await fetch(url);
             const data = await response.json();
             if (data && data.length > 0) {
-                return {
-                    name: data[0].display_name,
-                    lat: parseFloat(data[0].lat),
-                    lng: parseFloat(data[0].lon)
-                };
+                return { name: data[0].display_name, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
             }
-        } catch (e) {
-            logDebug(`Geocoding error: ${e.message}`);
-        }
+        } catch (e) { logDebug(`Geocoding error: ${e.message}`); }
         return null;
     }
 
@@ -349,54 +455,30 @@
         const input = document.getElementById('newAddressInput');
         const val = input.value.trim();
         if (val === "") return;
-
-        document.getElementById('statusText').innerText = "Adding location...";
-        let obj = null;
-
-        try {
-            if (selectedNewAddress) {
-                obj = selectedNewAddress;
-            } else {
-                obj = await geocodeAddress(val);
-            }
-
-            if (obj) {
-                addresses.push(obj);
-                input.value = "";
-                selectedNewAddress = null;
-                previewMarkerLayer.clearLayers();
-                document.getElementById('newAddressSuggestions').innerHTML = "";
-                updateAddressUI();
-                await calculateRoute();
-            } else {
-                alert("Location not found.");
-                document.getElementById('statusText').innerText = "Ready.";
-            }
-        } catch (e) {
-            logDebug(`Add error: ${e.message}`);
-            alert("Error adding address.");
-            document.getElementById('statusText').innerText = "Ready.";
-        }
+        let obj = selectedNewAddress ? selectedNewAddress : await geocodeAddress(val);
+        if (obj) {
+            addresses.push(obj);
+            input.value = "";
+            selectedNewAddress = null;
+            previewMarkerLayer.clearLayers();
+            document.getElementById('newAddressSuggestions').innerHTML = "";
+            updateAddressUI();
+            await calculateRoute();
+        } else { alert("Location not found."); }
     }
 
     async function removeAddress(tourIndex) {
-        logDebug(`Removed tour stop at index ${tourIndex}`);
         addresses.splice(tourIndex, 1);
         updateAddressUI();
         await calculateRoute();
     }
 
-    function dragStart(e, index) { 
-        draggedIndex = index; 
-        e.dataTransfer.effectAllowed = 'move'; 
-        setTimeout(() => e.target.classList.add('dragging'), 0); 
-    }
+    function dragStart(e, index) { draggedIndex = index; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => e.target.classList.add('dragging'), 0); }
     function dragEnd(e) { e.target.classList.remove('dragging'); draggedIndex = null; }
     function dragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
     async function drop(e, targetIndex) {
         e.preventDefault();
         if (draggedIndex === null || draggedIndex === targetIndex) return;
-
         const item = addresses.splice(draggedIndex, 1)[0];
         addresses.splice(targetIndex, 0, item);
         updateAddressUI();
@@ -410,7 +492,6 @@
             container.innerHTML = `<div class="empty-hint" id="emptyHint">No addresses added yet.</div>`;
             return;
         }
-
         addresses.forEach((addr, tourIndex) => {
             container.innerHTML += `
                 <div class="address-item" draggable="true" 
@@ -429,35 +510,17 @@
 
     function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
         const R = 6371;
-        const dLat = deg2rad(lat2 - lat1);
-        const dLon = deg2rad(lon2 - lon1);
-        const a = 
-            Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c;
-    }
-
-    function deg2rad(deg) {
-        return deg * (Math.PI/180);
+        const dLat = (lat2 - lat1) * (Math.PI/180);
+        const dLon = (lon2 - lon1) * (Math.PI/180);
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * (Math.PI/180)) * Math.cos(lat2 * (Math.PI/180)) * Math.sin(dLon/2) * Math.sin(dLon/2);
+        return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
     }
 
     async function optimizeAndSortRoute() {
-        if (addresses.length <= 1) {
-            alert("Add at least 2 addresses to optimize the route.");
-            return;
-        }
-
+        if (addresses.length <= 1) { alert("Add at least 2 addresses."); return; }
         const depotText = document.getElementById('depotInput').value.trim();
         let depot = await geocodeAddress(depotText);
-        if (!depot) {
-            alert("Departure could not be found.");
-            return;
-        }
-
-        document.getElementById('statusText').innerText = "Optimizing route (TSP)...";
-        logDebug("Running Nearest Neighbor route optimization...");
+        if (!depot) return;
 
         let unvisited = [...addresses];
         let optimized = [];
@@ -466,97 +529,49 @@
         while (unvisited.length > 0) {
             let nearestIdx = 0;
             let minDist = Infinity;
-
             unvisited.forEach((pt, idx) => {
                 const dist = getDistanceFromLatLonInKm(currentPoint.lat, currentPoint.lng, pt.lat, pt.lng);
-                if (dist < minDist) {
-                    minDist = dist;
-                    nearestIdx = idx;
-                }
+                if (dist < minDist) { minDist = dist; nearestIdx = idx; }
             });
-
-            const nextStop = unvisited.splice(nearestIdx, 1)[0];
-            optimized.push(nextStop);
-            currentPoint = nextStop;
+            optimized.push(unvisited.splice(nearestIdx, 1)[0]);
+            currentPoint = optimized[optimized.length - 1];
         }
 
         addresses = optimized;
         updateAddressUI();
         await calculateRoute();
-        document.getElementById('statusText').innerText = "Route optimized!";
-        logDebug("Route optimization completed.");
     }
 
     async function calculateRoute() {
         const depotText = document.getElementById('depotInput').value.trim();
-        if (!depotText) {
-            return;
-        }
-
-        document.getElementById('statusText').innerText = "Calculating route...";
-        logDebug(`Starting route calculation...`);
-        
+        if (!depotText) return;
         let depot = await geocodeAddress(depotText);
-        if (!depot || isNaN(depot.lat) || isNaN(depot.lng)) {
-            document.getElementById('statusText').innerText = "Ready.";
-            return;
-        }
+        if (!depot) return;
 
         const validStops = addresses.filter(s => s && !isNaN(s.lat) && !isNaN(s.lng));
-        
         markersLayer.clearLayers();
         previewMarkerLayer.clearLayers();
 
-        L.marker([depot.lat, depot.lng], {
-            icon: createNumberedMarkerIcon('VD', '#002855')
-        }).addTo(markersLayer).bindPopup(`<b>Departure:</b><br>${depot.name}`);
+        L.marker([depot.lat, depot.lng], { icon: createNumberedMarkerIcon('VD', '#002855') }).addTo(markersLayer).bindPopup(`<b>Departure:</b><br>${depot.name}`);
 
         const allWaypoints = [depot, ...validStops];
-        
         validStops.forEach((stop, idx) => {
-            const marker = L.marker([stop.lat, stop.lng], {
-                icon: createNumberedMarkerIcon(idx + 1, '#007BFF')
-            }).addTo(markersLayer);
-
-            marker.bindPopup(`<b>Tour Stop ${idx + 1}:</b><br>${stop.name}<br><span style="font-size:10px; color:#666;">(Right-click to delete)</span>`);
-
-            marker.on('contextmenu', (e) => {
-                L.DomEvent.stopPropagation(e);
-                logDebug(`Right-click on stop ${idx + 1} for deletion prompt.`);
-
-                window[`confirmDelete_${idx}`] = async function() {
-                    map.closePopup();
-                    document.getElementById('statusText').innerText = "Deleting stop...";
-                    await removeAddress(idx);
-                };
-
-                const deletePopup = L.popup()
-                    .setLatLng(e.latlng)
-                    .setContent(`
-                        <div style="font-size: 13px; max-width: 220px;">
-                            <b style="color: #dc3545;">Delete Tour Stop ${idx + 1}?</b><br>
-                            <span style="font-size: 11px; color: #444;">${stop.name}</span>
-                            <button class="map-popup-btn-red" onclick="confirmDelete_${idx}()">Confirm Delete</button>
-                        </div>
-                    `)
-                    .openOn(map);
-            });
+            L.marker([stop.lat, stop.lng], { icon: createNumberedMarkerIcon(idx + 1, '#007BFF') }).addTo(markersLayer).bindPopup(`<b>Stop ${idx + 1}:</b><br>${stop.name}`);
         });
 
         const gmapContainer = document.getElementById('gmapLinkContainer');
         if (validStops.length === 0) {
             map.setView([depot.lat, depot.lng], 11);
             if (routeLayer) map.removeLayer(routeLayer);
+            restrictionLayer.clearLayers();
             document.getElementById('output').innerHTML = `<span style="color:#666;">Add addresses to calculate route.</span>`;
             gmapContainer.innerHTML = "";
-            document.getElementById('statusText').innerText = "Ready.";
             return;
         }
 
         const coordsString = allWaypoints.map(wp => `${wp.lng},${wp.lat}`).join(';');
         const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
         
-        logDebug(`Sending OSRM request...`);
         try {
             const response = await fetch(url);
             const data = await response.json();
@@ -564,62 +579,49 @@
                 const route = data.routes[0];
                 const distanceKm = (route.distance / 1000).toFixed(1);
                 const durationHours = (route.duration / 3600).toFixed(1);
-                logDebug(`OSRM route loaded: ${distanceKm} km`);
 
                 if (routeLayer) map.removeLayer(routeLayer);
-                
-                routeLayer = L.geoJSON(route.geometry, {
-                    style: { color: '#007BFF', weight: 5, opacity: 0.8 }
-                }).addTo(map);
-
+                routeLayer = L.geoJSON(route.geometry, { style: { color: '#002855', weight: 6, opacity: 0.85 } }).addTo(map);
                 map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
 
-                let gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(depot.name)}`;
+                if (route.geometry && route.geometry.coordinates) {
+                    await loadRouteRestrictions(route.geometry.coordinates);
+                }
+
+                let gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${depot.lat},${depot.lng}&travelmode=driving`;
                 if (validStops.length === 1) {
-                    gmapsUrl += `&destination=${encodeURIComponent(validStops[0].name)}`;
+                    gmapsUrl += `&destination=${validStops[0].lat},${validStops[0].lng}`;
                 } else {
-                    gmapsUrl += `&destination=${encodeURIComponent(validStops[validStops.length - 1].name)}`;
-                    const intermediate = validStops.slice(0, -1).map(s => encodeURIComponent(s.name)).join('|');
+                    gmapsUrl += `&destination=${validStops[validStops.length - 1].lat},${validStops[validStops.length - 1].lng}`;
+                    const intermediate = validStops.slice(0, -1).map(s => `${s.lat},${s.lng}`).join('|');
                     gmapsUrl += `&waypoints=${intermediate}`;
                 }
 
-                gmapContainer.innerHTML = `<a class="map-link-btn" href="${gmapsUrl}" target="_blank">Open Full Route in Google Maps ↗</a>`;
+                gmapContainer.innerHTML = `<a class="map-link-btn" href="${gmapsUrl}" target="_blank">Open Route in Google Maps ↗</a>`;
 
-                let html = "";
-
-                // Pure loading list (LIFO, start depot omitted):
-                html += `<strong>Loading List (LIFO - For the ramp):</strong><br><ol style="margin: 5px 0 10px 20px; padding: 0;">`;
+                let html = `<strong>🚚 LKW Ramp Loading List (LIFO):</strong><br><ol style="margin: 5px 0 10px 20px; padding: 0;">`;
                 [...validStops].reverse().forEach((stop, idx, arr) => {
                     const originalStopNum = arr.length - idx;
-                    html += `<li><b>Tour Stop #${originalStopNum}:</b> ${stop.name}</li>`;
+                    html += `<li><b>Stop #${originalStopNum}:</b> ${stop.name}</li>`;
                 });
                 html += `</ol>`;
-
                 html += `<hr style="border:0; border-top:1px solid #ccc; margin:10px 0;">`;
-                html += `🚗 <b>Total Distance:</b> ${distanceKm} km | ⏱️ <b>Time:</b> ${durationHours} hrs`;
+                html += `🚛 <b>Total Distance:</b> ${distanceKm} km | ⏱️ <b>Est. Time:</b> ${durationHours} hrs`;
 
                 document.getElementById('output').innerHTML = html;
-            } else {
-                logDebug(`OSRM routing failed.`);
             }
-        } catch (e) {
-            logDebug(`OSRM network error: ${e.message}`);
-        }
-        document.getElementById('statusText').innerText = "Ready.";
+        } catch (e) { logDebug(`Network error: ${e.message}`); }
     }
 
     window.addEventListener('DOMContentLoaded', async () => {
-        logDebug("Page loaded, initializing default departure marker...");
+        logDebug("DOM loaded, initializing map view...");
         const depotText = document.getElementById('depotInput').value.trim();
         const depot = await geocodeAddress(depotText);
         if (depot) {
             markersLayer.clearLayers();
-            L.marker([depot.lat, depot.lng], {
-                icon: createNumberedMarkerIcon('VD', '#002855')
-            }).addTo(markersLayer).bindPopup(`<b>Departure:</b><br>${depot.name}`);
+            L.marker([depot.lat, depot.lng], { icon: createNumberedMarkerIcon('VD', '#002855') }).addTo(markersLayer);
             map.setView([depot.lat, depot.lng], 11);
-            document.getElementById('output').innerHTML = `<span style="color:#666;">Add addresses to calculate route.</span>`;
-            logDebug("Default departure marker set.");
+            logDebug("Default depot set successfully.");
         }
     });
 </script>
