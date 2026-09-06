@@ -336,16 +336,20 @@
         // 1. Firmenname / POI / Name
         let name = a.company || a.amenity || a.shop || a.office || a.building || a.industrial || a.craft || a.tourism || a.historic || a.leisure || a.railway || "";
         
-        if (!name) {
+        if (!name && displayName) {
             let rawParts = displayName.split(',').map(p => p.trim());
             if (rawParts.length > 0) {
                 let first = rawParts[0];
-                let isStreet = a.road && first.toLowerCase().includes(a.road.toLowerCase());
+
+                // Prüfen, ob der erste Teil nur eine Hausnummer/Zahl ist
+                let isHouseNum = (a.house_number && first === a.house_number) || /^\d+[a-zA-Z]?$/.test(first);
+                let isStreet = a.road && (first.toLowerCase().includes(a.road.toLowerCase()) || a.road.toLowerCase().includes(first.toLowerCase()));
                 let isCity = (a.city || a.town || a.village) && first.toLowerCase() === (a.city || a.town || a.village || "").toLowerCase();
                 let isPostcode = a.postcode && first.includes(a.postcode);
                 let isCountry = (a.country || "").toLowerCase() === first.toLowerCase();
 
-                if (!isStreet && !isCity && !isPostcode && !isCountry) {
+                // Nur als Name übernehmen, wenn es KEIN Standard-Adressbestandteil ist
+                if (!isHouseNum && !isStreet && !isCity && !isPostcode && !isCountry) {
                     name = first;
                 }
             }
