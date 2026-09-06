@@ -67,23 +67,23 @@
         }
         .btn-gps:hover { background: #475569; }
 
-        input[type="text"] { 
+        input[type="text"], input[type="number"] { 
             width: 100%; box-sizing: border-box; padding: 10px; 
             border: 1px solid var(--border-color); border-radius: 6px; 
             font-size: 0.9rem; background: #fff; color: var(--text-color);
         }
-        input[type="text"]:focus { outline: none; border-color: var(--primary-color); }
+        input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: var(--primary-color); }
         
         .search-row { display: flex; gap: 8px; align-items: stretch; }
 
         /* Custom Dropdown (Icon-Only) */
-        .custom-select-wrapper { position: relative; width: 55px; user-select: none; }
+        .custom-select-wrapper { position: relative; width: 36px; user-select: none; flex-shrink: 0; }
         .custom-select-trigger {
             display: flex; align-items: center; justify-content: center;
-            padding: 6px; background: #fff; border: 1px solid var(--border-color);
+            padding: 4px; background: #fff; border: 1px solid var(--border-color);
             border-radius: 6px; cursor: pointer; height: 100%; box-sizing: border-box;
         }
-        .custom-select-trigger::after { content: "▼"; font-size: 7px; color: var(--text-muted); margin-left: 2px; }
+        .custom-select-trigger::after { content: "▼"; font-size: 5px; color: var(--text-muted); margin-left: 1px; }
         .custom-options {
             position: absolute; bottom: 105%; left: 0; right: 0; background: #fff;
             border: 1px solid var(--border-color); border-radius: 6px;
@@ -92,10 +92,15 @@
         .custom-options.open { display: block; }
         .custom-option {
             display: flex; align-items: center; justify-content: center;
-            padding: 8px; cursor: pointer; border-bottom: 1px solid var(--border-color);
+            padding: 6px; cursor: pointer; border-bottom: 1px solid var(--border-color);
         }
         .custom-option:last-child { border-bottom: none; }
         .custom-option:hover { background: #f1f5f9; }
+
+        /* Package Input Wrapper */
+        .package-input-wrapper { display: flex; align-items: center; gap: 4px; background: #fff; border: 1px solid var(--border-color); border-radius: 6px; padding: 0 6px; width: 75px; flex-shrink: 0; box-sizing: border-box; }
+        .package-input-wrapper input { border: none; padding: 8px 0; width: 42px; text-align: center; font-size: 0.85rem; background: transparent; }
+        .package-input-wrapper input:focus { outline: none; }
 
         .suggestions-box {
             position: absolute; bottom: 100%; left: 0; right: 0;
@@ -142,10 +147,10 @@
         }
         .address-item.dragging { opacity: 0.4; background: #e2e8f0; }
         
-        .address-content { display: flex; align-items: center; gap: 10px; flex-grow: 1; overflow: hidden; }
-        .address-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 8px; width: 100%; }
+        .address-content { display: flex; align-items: center; gap: 8px; flex-grow: 1; overflow: hidden; }
+        .address-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; width: 100%; }
         
-        .drag-handle { color: #94a3b8; cursor: grab; font-weight: bold; flex-shrink: 0; padding: 2px 4px; }
+        .drag-handle { color: #94a3b8; cursor: grab; font-weight: bold; flex-shrink: 0; padding: 2px 2px; }
         .drag-handle:active { cursor: grabbing; }
         
         .btn-del { 
@@ -218,20 +223,25 @@
                 <div class="custom-select-wrapper" id="stopTypeCustomSelect">
                     <div class="custom-select-trigger" onclick="toggleCustomDropdown()">
                         <span id="selectedIconLabel" style="display:flex; align-items:center; justify-content:center;">
-                            <svg width="20" height="20" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         </span>
                     </div>
                     <div class="custom-options" id="customDropdownOptions">
                         <div class="custom-option" onclick="selectStopType('load')" title="Laden">
-                            <svg width="20" height="20" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f97316" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f97316" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         </div>
                         <div class="custom-option" onclick="selectStopType('unload')" title="Entladen">
-                            <svg width="20" height="20" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         </div>
                         <div class="custom-option" onclick="selectStopType('via')" title="Via-Punkt">
-                            <svg width="20" height="20" viewBox="0 0 15 15" fill="none"><path d="M7.5 1C5.01 1 3 3.01 3 5.5C3 8.75 7.5 14 7.5 14C7.5 14 12 8.75 12 5.5C12 3.01 9.99 1 7.5 1Z" fill="#64748b"/><circle cx="7.5" cy="5.5" r="2" fill="white"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 15 15" fill="none"><path d="M7.5 1C5.01 1 3 3.01 3 5.5C3 8.75 7.5 14 7.5 14C7.5 14 12 8.75 12 5.5C12 3.01 9.99 1 7.5 1Z" fill="#64748b"/><circle cx="7.5" cy="5.5" r="2" fill="white"/></svg>
                         </div>
                     </div>
+                </div>
+
+                <div class="package-input-wrapper" title="Anzahl Kollis">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    <input type="number" id="newAddressKoll" value="1" min="1" max="999" maxlength="3">
                 </div>
             </div>
             <div id="newAddressSuggestions" class="suggestions-box"></div>
@@ -275,11 +285,11 @@
         const triggerLabel = document.getElementById('selectedIconLabel');
         let svgHtml = '';
         if (type === 'load') {
-            svgHtml = `<svg width="20" height="20" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f97316" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            svgHtml = `<svg width="18" height="18" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f97316" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         } else if (type === 'unload') {
-            svgHtml = `<svg width="20" height="20" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            svgHtml = `<svg width="18" height="18" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         } else {
-            svgHtml = `<svg width="20" height="20" viewBox="0 0 15 15" fill="none"><path d="M7.5 1C5.01 1 3 3.01 3 5.5C3 8.75 7.5 14 7.5 14C7.5 14 12 8.75 12 5.5C12 3.01 9.99 1 7.5 1Z" fill="#64748b"/><circle cx="7.5" cy="5.5" r="2" fill="white"/></svg>`;
+            svgHtml = `<svg width="18" height="18" viewBox="0 0 15 15" fill="none"><path d="M7.5 1C5.01 1 3 3.01 3 5.5C3 8.75 7.5 14 7.5 14C7.5 14 12 8.75 12 5.5C12 3.01 9.99 1 7.5 1Z" fill="#64748b"/><circle cx="7.5" cy="5.5" r="2" fill="white"/></svg>`;
         }
         triggerLabel.innerHTML = svgHtml;
         document.getElementById('customDropdownOptions').classList.remove('open');
@@ -466,23 +476,23 @@
                 resolvedName = cleanAndFormatAddress(data.display_name, data.address);
             }
 
-            // NEU: Stopp wird hier direkt an das ENDE der Adressliste angefügt
             addresses.push({ 
                 name: resolvedName, 
                 lat: lat, 
                 lng: lng, 
-                type: type 
+                type: type,
+                koll: 1 
             });
 
             updateAddressUI(); 
             await calculateRoute();
-            logDebug(`Stopp via Kartenmenü ans Ende hinzugefügt: ${resolvedName} (${type})`);
         } catch (err) {
             addresses.push({ 
                 name: `Standort (${lat.toFixed(3)}, ${lng.toFixed(3)})`, 
                 lat: lat, 
                 lng: lng, 
-                type: type 
+                type: type,
+                koll: 1 
             });
             updateAddressUI(); 
             await calculateRoute();
@@ -587,13 +597,17 @@
 
     async function addAddress() {
         const input = document.getElementById('newAddressInput');
+        const kollInput = document.getElementById('newAddressKoll');
         const val = input.value.trim();
         if (val === "") return;
+        
         let obj = selectedNewAddress ? selectedNewAddress : await geocodeAddress(val);
         if (obj) {
             obj.type = currentStopType;
+            obj.koll = parseInt(kollInput.value) || 1;
             addresses.push(obj);
             input.value = "";
+            kollInput.value = "1";
             selectedNewAddress = null;
             previewMarkerLayer.clearLayers();
             document.getElementById('newAddressSuggestions').innerHTML = "";
@@ -620,6 +634,14 @@
         else if (currentType === 'unload') addresses[tourIndex].type = 'via';
         else addresses[tourIndex].type = 'load';
         updateAddressUI();
+        await calculateRoute();
+    }
+
+    async function updateStopKoll(tourIndex, val) {
+        if (!addresses[tourIndex]) return;
+        let parsed = parseInt(val);
+        if (isNaN(parsed) || parsed < 1) parsed = 1;
+        addresses[tourIndex].koll = parsed;
         await calculateRoute();
     }
 
@@ -652,12 +674,18 @@
         addresses.forEach((addr, tourIndex) => {
             let badgeHtml = getInteractiveIconHtml(addr.type, tourIndex);
             
-            let labelText = addr.pos ? addr.pos : (addr.type === 'load' ? `L${loadCounter++}` : (addr.type === 'unload' ? `U${unloadCounter++}` : 'VIA'));
+            let labelText = addr.type === 'load' ? `L${loadCounter++}` : (addr.type === 'unload' ? `U${unloadCounter++}` : 'VIA');
             let labelBgColor = addr.type === 'load' ? '#f97316' : (addr.type === 'unload' ? '#0284c7' : '#64748b');
             
             let colorBadge = `<span style="background-color: ${labelBgColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; flex-shrink: 0;" title="Typ: ${addr.type}">${labelText}</span>`;
 
-            let kollInfo = addr.koll ? ` <span style="background:rgba(249,115,22,0.15); color:#c2410c; padding:1px 5px; border-radius:4px; font-size:0.75rem; font-weight:700;">${addr.koll} Koll</span>` : '';
+            // Identisches Koll-Input-Element für die oberen Stopps mit editierbarem Wert
+            let kollInfo = `
+                <div class="package-input-wrapper" style="width: 65px; height: 26px; padding: 0 4px;" title="Anzahl Kollis ändern">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    <input type="number" value="${addr.koll || 1}" min="1" max="999" maxlength="3" style="padding: 2px 0; font-size: 0.75rem;" onchange="updateStopKoll(${tourIndex}, this.value)" oninput="updateStopKoll(${tourIndex}, this.value)">
+                </div>`;
+
             let formattedName = formatAddressNameBold(addr.name);
 
             container.innerHTML += `
@@ -665,7 +693,7 @@
                     <div class="address-content">
                         <span class="drag-handle" draggable="true" ondragstart="dragStart(event, ${tourIndex})" ondragend="dragEnd(event)" title="Zum Sortieren ziehen">☰</span>
                         ${badgeHtml}
-                        <span class="address-text">${colorBadge}${kollInfo} <span style="overflow:hidden; text-overflow:ellipsis;" title="${addr.name}">${formattedName}</span></span>
+                        <span class="address-text">${colorBadge} ${kollInfo} <span style="overflow:hidden; text-overflow:ellipsis;" title="${addr.name}">${formattedName}</span></span>
                     </div>
                     <button class="btn-del" onclick="removeAddress(${tourIndex})" title="Löschen">×</button>
                 </div>`;
@@ -730,12 +758,12 @@
             let loadCounter = 1, unloadCounter = 1;
 
             validItems.forEach((item, idx) => {
-                let labelText = item.pos ? item.pos : (item.type === 'load' ? `L${loadCounter++}` : (item.type === 'unload' ? `U${unloadCounter++}` : 'VIA'));
+                let labelText = item.type === 'load' ? `L${loadCounter++}` : (item.type === 'unload' ? `U${unloadCounter++}` : 'VIA');
                 let iconMarker = item.type === 'load' ? createMarkerIcon(labelText, '#f97316') : (item.type === 'unload' ? createMarkerIcon(labelText, '#0284c7') : createMarkerIcon('VIA', '#64748b'));
                 let labelTypeStr = item.type === 'load' ? 'Laden' : (item.type === 'unload' ? 'Entladen' : 'Via-Punkt');
 
                 const m = L.marker([item.lat, item.lng], { icon: iconMarker, draggable: true }).addTo(markersLayer);
-                m.bindPopup(`<b>${labelTypeStr} (${item.pos || ''}):</b><br>${item.name}<br><button class="map-popup-btn" style="background:#ef4444; margin-top:6px;" onclick="removeAddress(${idx}); map.closePopup();">Stopp entfernen</button>`);
+                m.bindPopup(`<b>${labelTypeStr}:</b><br>${item.name}<br>Kollis: ${item.koll || 1}<br><button class="map-popup-btn" style="background:#ef4444; margin-top:6px;" onclick="removeAddress(${idx}); map.closePopup();">Stopp entfernen</button>`);
                 
                 m.on('dragend', async function(event) {
                     const newPos = event.target.getLatLng();
@@ -803,7 +831,7 @@
                     let badgeTxt = stop.type === 'load' ? `L${loadSeq}` : `U${unloadSeq}`;
                     let badgeBg = stop.type === 'load' ? '#f97316' : '#0284c7';
                     let typeBadgeHtml = `<span style="background-color: ${badgeBg}; color: white; padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; font-weight: bold;">${badgeTxt}</span>`;
-                    let kollBadge = stop.koll ? `(${stop.koll} Koll)` : '';
+                    let kollBadge = stop.koll ? `<strong>(${stop.koll} Koll)</strong>` : '';
                     let formattedName = formatAddressNameBold(stop.name);
                     html += `<li>${typeBadgeHtml} ${formattedName} ${kollBadge}</li>`;
                 });
