@@ -19,6 +19,8 @@
             --danger-hover: #dc2626;
             --success-color: #10b981;
             --success-hover: #059669;
+            --purple-color: #8b5cf6;
+            --purple-hover: #7c3aed;
         }
 
         body { 
@@ -105,11 +107,11 @@
         .suggestion-item:hover { background: #f1f5f9; }
 
         .btn-primary { 
-            background: var(--primary-color); color: white; border: none; 
+            background: var(--success-color); color: white; border: none; 
             padding: 10px 16px; font-size: 0.9rem; font-weight: 500; border-radius: 6px; 
             cursor: pointer; width: 100%; margin-top: 6px; transition: background 0.2s;
         }
-        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-primary:hover { background: var(--success-hover); }
 
         .list-header-wrapper {
             display: flex; justify-content: space-between; align-items: center;
@@ -119,10 +121,10 @@
         .list-header-actions { display: flex; align-items: center; gap: 8px; }
         
         .btn-optimize-small {
-            background: var(--success-color); color: white; border: none; padding: 5px 10px;
+            background: var(--purple-color); color: white; border: none; padding: 5px 10px;
             font-size: 0.8rem; font-weight: 600; border-radius: 4px; cursor: pointer;
         }
-        .btn-optimize-small:hover { background: var(--success-hover); }
+        .btn-optimize-small:hover { background: var(--purple-hover); }
 
         .btn-clear-all {
             background: var(--danger-color); color: white; border: none; padding: 5px 8px;
@@ -452,18 +454,21 @@
     async function addStopFromMap(lat, lng, type) {
         map.closePopup();
         const statusEl = document.getElementById('statusText');
-        statusEl.innerText = "Ermittle Adresse...";
+        statusEl.innerText = "Ermittle Adresse & Firmenname...";
         statusEl.className = "pulsing";
 
         try {
             const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
             const data = await response.json();
             
-            let fullDisplayName = data && data.display_name ? data.display_name : `Punkt (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
-            let cleanName = cleanAndFormatAddress(fullDisplayName, data ? data.address : null);
+            let resolvedName = `Punkt (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+            if (data && data.display_name) {
+                resolvedName = cleanAndFormatAddress(data.display_name, data.address);
+            }
 
+            // NEU: Stopp wird hier direkt an das ENDE der Adressliste angefügt
             addresses.push({ 
-                name: cleanName, 
+                name: resolvedName, 
                 lat: lat, 
                 lng: lng, 
                 type: type 
@@ -471,7 +476,7 @@
 
             updateAddressUI(); 
             await calculateRoute();
-            logDebug(`Stopp via Kartenmenü hinzugefügt: ${cleanName} (${type})`);
+            logDebug(`Stopp via Kartenmenü ans Ende hinzugefügt: ${resolvedName} (${type})`);
         } catch (err) {
             addresses.push({ 
                 name: `Standort (${lat.toFixed(3)}, ${lng.toFixed(3)})`, 
@@ -778,14 +783,12 @@
                 }
                 gmapContainer.innerHTML = `<a class="map-link-btn" href="${gmapsUrl}" target="_blank">Route in Google Maps öffnen ↗</a>`;
 
-                // --- LIFO UMGEKEHRTE REIHENFOLGE (Ohne "nach LIFO-Prinzip") ---
                 let nonViaStops = validItems.filter(i => i.type !== 'via');
-                let displayStops = [...nonViaStops].reverse(); // Liste für die Anzeige umdrehen (Last In, First Out)
+                let displayStops = [...nonViaStops].reverse();
 
                 let html = `<strong>Beladereihenfolge (LIFO):</strong><br><ol style="margin: 6px 0 6px 20px; padding: 0;">`;
                 
                 displayStops.forEach((stop) => {
-                    // Indizes für Labels bestimmen basierend auf der ursprünglichen Tour-Reihenfolge
                     let originalIndex = nonViaStops.indexOf(stop);
                     let loadSeq = 1, unloadSeq = 1;
                     nonViaStops.forEach((s, idx) => {
@@ -820,8 +823,14 @@
     }
 
     window.addEventListener('DOMContentLoaded', async () => {
-        const depot = await geocodeAddress(document.getElementById('depotInput').value.trim());
-        if (depot) { depotData = depot; map.setView([depot.lat, depot.lng], 11); await calculateRoute(); }
+        const initialVal = document.getElementById('depotInput').value.trim();
+        const depot = await geocodeAddress(initialVal);
+        if (depot) { 
+            depotData = depot; 
+            document.getElementById('depotInput').value = depotData.name;
+            map.setView([depot.lat, depot.lng], 11); 
+            await calculateRoute(); 
+        }
     });
 </script>
 </body>
