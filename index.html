@@ -311,59 +311,69 @@
             .replace(/[íìîïīįĭǐȉȋỉĩị]/gi, 'i');
     }
 
-    // Google Maps-like address formatting function to strip endless administrative strings
-    function formatGoogleStyleAddress(item) {
-        if (!item) return "";
-        if (!item.address) {
-            if (item.display_name) {
-                const parts = item.display_name.split(',').map(p => p.trim());
-                return parts.slice(0, 3).join(', ');
+    // Google Maps-ähnliche Adressformatierung (ohne unnötige Stadtviertel/Regionen)
+    function cleanAndFormatAddress(displayName, addressObj) {
+        if (!addressObj) {
+            let parts = displayName.split(',').map(p => p.trim());
+            if (parts.length > 0) {
+                let last = parts[parts.length - 1].toLowerCase();
+                if (last.includes('norge') || last.includes('norway')) parts[parts.length - 1] = 'NO';
+                else if (last.includes('sverige') || last.includes('sweden')) parts[parts.length - 1] = 'SE';
             }
-            return item.name || "";
-        }
-
-        const addr = item.address;
-        const name = item.name || "";
-        const road = addr.road || addr.pedestrian || addr.suburb || addr.hamlet || "";
-        const houseNumber = addr.house_number || "";
-        const postcode = addr.postcode || "";
-        const city = addr.city || addr.town || addr.village || addr.municipality || "";
-        
-        let streetPart = "";
-        if (road) {
-            streetPart = houseNumber ? `${road} ${houseNumber}` : road;
-        }
-
-        let cityPart = "";
-        if (postcode && city) {
-            cityPart = `${postcode} ${city}`;
-        } else {
-            cityPart = city || postcode;
-        }
-
-        if (name && name.toLowerCase() !== road.toLowerCase() && !road.includes(name)) {
-            if (streetPart && cityPart) {
-                return `${name}, ${streetPart}, ${cityPart}`;
-            } else if (cityPart) {
-                return `${name}, ${cityPart}`;
-            }
-            return name;
-        }
-
-        if (streetPart && cityPart) {
-            return `${streetPart}, ${cityPart}`;
-        } else if (streetPart) {
-            return streetPart;
-        } else if (cityPart) {
-            return cityPart;
-        }
-
-        if (item.display_name) {
-            const parts = item.display_name.split(',').map(p => p.trim());
             return parts.slice(0, 3).join(', ');
         }
 
-        return item.display_name || "";
+        let nameOrCompany = "";
+        let rawParts = displayName.split(',').map(p => p.trim());
+        if (rawParts.length > 0 && !rawParts[0].match(/^\d/) && !rawParts[0].toLowerCase().includes(addressObj.road || '')) {
+            nameOrCompany = rawParts[0];
+        }
+
+        let road = addressObj.road || addressObj.pedestrian || "";
+        let houseNumber = addressObj.house_number ? ` ${addressObj.house_number}` : "";
+        let streetPart = road ? `${road}${houseNumber}` : "";
+
+        let postcode = addressObj.postcode || "";
+        let city = addressObj.city || addressObj.town || addressObj.village || addressObj.municipality || "";
+        let cityPart = (postcode && city) ? `${postcode} ${city}` : (city || postcode);
+
+        let countryCode = "";
+        if (addressObj.country_code) {
+            countryCode = addressObj.country_code.toUpperCase();
+        } else {
+            let lastPart = rawParts[rawParts.length - 1].toLowerCase();
+            if (lastPart.includes('norge') || lastPart.includes('norway')) countryCode = 'NO';
+            else if (lastPart.includes('sverige') || lastPart.includes('sweden')) countryCode = 'SE';
+            else if (lastPart.includes('danmark') || lastPart.includes('denmark')) countryCode = 'DK';
+            else if (lastPart.includes('deutschland') || lastPart.includes('germany')) countryCode = 'DE';
+            else countryCode = rawParts[rawParts.length - 1].toUpperCase();
+        }
+
+        let cleanParts = [];
+        if (nameOrCompany && nameOrCompany.toLowerCase() !== streetPart.toLowerCase()) {
+            cleanParts.push(nameOrCompany);
+        }
+        if (streetPart) {
+            cleanParts.push(streetPart);
+        }
+        if (cityPart) {
+            cleanParts.push(cityPart);
+        }
+        if (countryCode) {
+            cleanParts.push(countryCode);
+        }
+
+        return cleanParts.join(', ');
+    }
+
+    // IMMER das erste Segment (Firma oder Straße) fett markieren
+    function formatAddressNameBold(fullName) {
+        if (!fullName) return "";
+        const parts = fullName.split(',');
+        if (parts.length > 1) {
+            return `<strong>${parts[0].trim()}</strong>, ` + parts.slice(1).join(',').trim();
+        }
+        return `<strong>${fullName}</strong>`;
     }
 
     function getInteractiveIconHtml(type, tourIndex) {
@@ -380,7 +390,7 @@
     }
 
     let addresses = []; 
-    let depotData = { name: "Sørestrandvegen 39, 6220 Straumgjerde", lat: 62.3342430, lng: 6.5856790 };
+    let depotData = { name: "Sørestrandvegen 39, 6220 Straumgjerde, NO", lat: 62.3342430, lng: 6.5856790 };
     let debounceTimer = null;
     let depotDebounceTimer = null;
     let selectedNewAddress = null;
@@ -404,7 +414,10 @@
         try {
             const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
             const data = await response.json();
-            return formatGoogleStyleAddress(data);
+            if (data && data.display_name) {
+                return cleanAndFormatAddress(data.display_name, data.address);
+            }
+            return `Punkt (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
         } catch (err) {
             return `(${lat.toFixed(3)}, ${lng.toFixed(3)})`;
         }
@@ -418,7 +431,9 @@
         try {
             const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
             const data = await response.json();
-            const cleanName = formatGoogleStyleAddress(data);
+            
+            let fullDisplayName = data && data.display_name ? data.display_name : `Punkt (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+            let cleanName = cleanAndFormatAddress(fullDisplayName, data.address);
 
             window.addLoadStopFromMap = async function() {
                 map.closePopup();
@@ -444,7 +459,7 @@
 
             popup.setContent(`
                 <div style="font-size: 13px; max-width: 240px;">
-                    <span style="font-size: 11px; color: #64748b; display:block; margin-bottom:6px;"><b>Standort:</b><br>${cleanName}</span>
+                    <span style="font-size: 11px; color: #64748b; display:block; margin-bottom:6px;"><b>Standort (Firma/Adresse):</b><br>${cleanName}</span>
                     <button class="map-popup-btn-depot" onclick="setDepotFromMap()">Als Start / Depot setzen</button>
                     <button class="map-popup-btn-load" onclick="addLoadStopFromMap()">Laden hinzufügen</button>
                     <button class="map-popup-btn-unload" onclick="addUnloadStopFromMap()">Entladen hinzufügen</button>
@@ -468,18 +483,10 @@
         statusEl.innerText = "Ermittle GPS-Standort..."; statusEl.className = "pulsing";
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const lat = pos.coords.latitude, lng = pos.coords.longitude;
-            try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
-                const data = await res.json();
-                const cleanName = formatGoogleStyleAddress(data) || `GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-                depotData = { name: cleanName, lat: lat, lng: lng };
-                document.getElementById('depotInput').value = depotData.name;
-                statusEl.className = ""; await calculateRoute();
-            } catch (err) {
-                depotData = { name: `GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)}`, lat: lat, lng: lng };
-                document.getElementById('depotInput').value = depotData.name;
-                statusEl.className = ""; await calculateRoute();
-            }
+            const resolvedName = await reverseGeocode(lat, lng);
+            depotData = { name: resolvedName || `GPS: ${lat}, ${lng}`, lat: lat, lng: lng };
+            document.getElementById('depotInput').value = depotData.name;
+            statusEl.className = ""; await calculateRoute();
         });
     }
 
@@ -519,13 +526,14 @@
             boxElement.innerHTML = "";
             if (data && data.length > 0) {
                 data.forEach(item => {
-                    const cleanName = formatGoogleStyleAddress(item);
+                    let cleanDisp = cleanAndFormatAddress(item.display_name, item.address);
+
                     const div = document.createElement('div');
                     div.className = 'suggestion-item';
-                    div.innerText = cleanName;
+                    div.innerText = cleanDisp;
                     div.onclick = async () => {
-                        inputElement.value = cleanName;
-                        const obj = { name: cleanName, lat: parseFloat(item.lat), lng: parseFloat(item.lon || item.lng), type: currentStopType };
+                        inputElement.value = cleanDisp;
+                        const obj = { name: cleanDisp, lat: parseFloat(item.lat), lng: parseFloat(item.lon || item.lng), type: currentStopType };
                         boxElement.innerHTML = "";
                         if (onSelectCallback) await onSelectCallback(obj);
                     };
@@ -547,8 +555,8 @@
             const response = await fetch(url);
             const data = await response.json();
             if (data && data.length > 0) {
-                const cleanName = formatGoogleStyleAddress(data[0]);
-                return { name: cleanName, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lng || data[0].lon) };
+                let cleanDisp = cleanAndFormatAddress(data[0].display_name, data[0].address);
+                return { name: cleanDisp, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lng || data[0].lon) };
             }
         } catch (e) {}
         return null;
@@ -616,16 +624,25 @@
             if (clearAllBtn) clearAllBtn.style.display = 'inline-block';
         }
         
+        let loadCounter = 1, unloadCounter = 1;
+
         addresses.forEach((addr, tourIndex) => {
             let badgeHtml = getInteractiveIconHtml(addr.type, tourIndex);
+            
+            let labelText = addr.pos ? addr.pos : (addr.type === 'load' ? `L${loadCounter++}` : (addr.type === 'unload' ? `U${unloadCounter++}` : 'VIA'));
+            let labelBgColor = addr.type === 'load' ? '#f97316' : (addr.type === 'unload' ? '#0284c7' : '#64748b');
+            
+            let colorBadge = `<span style="background-color: ${labelBgColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; flex-shrink: 0;" title="Typ: ${addr.type}">${labelText}</span>`;
+
             let kollInfo = addr.koll ? ` <span style="background:rgba(249,115,22,0.15); color:#c2410c; padding:1px 5px; border-radius:4px; font-size:0.75rem; font-weight:700;">${addr.koll} Koll</span>` : '';
-            let posInfo = addr.pos ? ` <span style="background:#e2e8f0; color:#475569; padding:1px 5px; border-radius:4px; font-size:0.75rem; font-weight:700;">${addr.pos}</span>` : '';
+            let formattedName = formatAddressNameBold(addr.name);
 
             container.innerHTML += `
                 <div class="address-item" ondragover="dragOver(event)" ondrop="drop(event, ${tourIndex})">
                     <div class="address-content">
                         <span class="drag-handle" draggable="true" ondragstart="dragStart(event, ${tourIndex})" ondragend="dragEnd(event)" title="Zum Sortieren ziehen">☰</span>
-                        <span class="address-text">${badgeHtml}${posInfo}${kollInfo} <span style="overflow:hidden; text-overflow:ellipsis;" title="${addr.name}">${addr.name}</span></span>
+                        ${badgeHtml}
+                        <span class="address-text">${colorBadge}${kollInfo} <span style="overflow:hidden; text-overflow:ellipsis;" title="${addr.name}">${formattedName}</span></span>
                     </div>
                     <button class="btn-del" onclick="removeAddress(${tourIndex})" title="Löschen">×</button>
                 </div>`;
@@ -690,8 +707,8 @@
             let loadCounter = 1, unloadCounter = 1;
 
             validItems.forEach((item, idx) => {
-                let labelText = item.pos ? item.pos : (item.type === 'load' ? `L${loadCounter++}` : (item.type === 'unload' ? `U${unloadCounter++}` : 'Via'));
-                let iconMarker = item.type === 'load' ? createMarkerIcon(labelText, '#f97316') : (item.type === 'unload' ? createMarkerIcon(labelText, '#0284c7') : createMarkerIcon('Via', '#64748b'));
+                let labelText = item.pos ? item.pos : (item.type === 'load' ? `L${loadCounter++}` : (item.type === 'unload' ? `U${unloadCounter++}` : 'VIA'));
+                let iconMarker = item.type === 'load' ? createMarkerIcon(labelText, '#f97316') : (item.type === 'unload' ? createMarkerIcon(labelText, '#0284c7') : createMarkerIcon('VIA', '#64748b'));
                 let labelTypeStr = item.type === 'load' ? 'Laden' : (item.type === 'unload' ? 'Entladen' : 'Via-Punkt');
 
                 const m = L.marker([item.lat, item.lng], { icon: iconMarker, draggable: true }).addTo(markersLayer);
@@ -744,11 +761,15 @@
                 gmapContainer.innerHTML = `<a class="map-link-btn" href="${gmapsUrl}" target="_blank">Route in Google Maps öffnen ↗</a>`;
 
                 let html = `<strong>Tour-Reihenfolge:</strong><br><ol style="margin: 6px 0 6px 20px; padding: 0;">`;
+                let sumLoadCount = 1, sumUnloadCount = 1;
                 validItems.filter(i => i.type !== 'via').forEach((stop) => {
                     let typeLabel = stop.type === 'load' ? '<b style="color:#f97316;">[LADEN]</b>' : '<b style="color:#0284c7;">[ENTLADEN]</b>';
-                    let posBadge = stop.pos ? `[${stop.pos}]` : '';
+                    let badgeTxt = stop.type === 'load' ? `L${sumLoadCount++}` : `U${sumUnloadCount++}`;
+                    let badgeBg = stop.type === 'load' ? '#f97316' : '#0284c7';
+                    let typeBadgeHtml = `<span style="background-color: ${badgeBg}; color: white; padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; font-weight: bold;">${badgeTxt}</span>`;
                     let kollBadge = stop.koll ? `(${stop.koll} Koll)` : '';
-                    html += `<li>${typeLabel} ${posBadge} ${stop.name} ${kollBadge}</li>`;
+                    let formattedName = formatAddressNameBold(stop.name);
+                    html += `<li>${typeLabel} ${typeBadgeHtml} ${formattedName} ${kollBadge}</li>`;
                 });
                 html += `</ol><hr style="border:0; border-top:1px solid var(--border-color); margin:8px 0;">`;
                 html += `<strong>Gesamtstrecke:</strong> ${(route.distance / 1000).toFixed(1)} km | <strong>Geschätzte Zeit:</strong> ${(route.duration / 3600).toFixed(1)} Std.`;
