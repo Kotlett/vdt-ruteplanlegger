@@ -421,17 +421,25 @@
         }
     }
 
-    // --- WIEDERHERGESTELLTES RECHTSKLICK-POPUP-MENÜ ---
     map.on('contextmenu', function(e) {
         const lat = e.latlng.lat;
         const lng = e.latlng.lng;
         
         const popupContent = `
-            <div style="text-align: center; font-family: inherit; min-width: 140px;">
-                <div style="font-weight: 600; margin-bottom: 6px; font-size: 0.85rem; color: #1e293b;">Stopp hinzufügen:</div>
-                <button class="map-popup-btn" style="background: #f97316;" onclick="addStopFromMap(${lat}, ${lng}, 'load')">📥 Als Laden</button>
-                <button class="map-popup-btn" style="background: #0284c7;" onclick="addStopFromMap(${lat}, ${lng}, 'unload')">📤 Als Entladen</button>
-                <button class="map-popup-btn" style="background: #64748b;" onclick="addStopFromMap(${lat}, ${lng}, 'via')">📍 Als Via-Punkt</button>
+            <div style="text-align: center; font-family: inherit; min-width: 150px;">
+                <div style="font-weight: 600; margin-bottom: 8px; font-size: 0.85rem; color: #1e293b;">Stopp hinzufügen:</div>
+                <button class="map-popup-btn" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: #fff; color: #1e293b; border: 1px solid var(--border-color); margin-bottom: 4px;" onclick="addStopFromMap(${lat}, ${lng}, 'load')">
+                    <svg width="14" height="14" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f97316" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Laden
+                </button>
+                <button class="map-popup-btn" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: #fff; color: #1e293b; border: 1px solid var(--border-color); margin-bottom: 4px;" onclick="addStopFromMap(${lat}, ${lng}, 'unload')">
+                    <svg width="14" height="14" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Entladen
+                </button>
+                <button class="map-popup-btn" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: #fff; color: #1e293b; border: 1px solid var(--border-color);" onclick="addStopFromMap(${lat}, ${lng}, 'via')">
+                    <svg width="14" height="14" viewBox="0 0 15 15" fill="none"><path d="M7.5 1C5.01 1 3 3.01 3 5.5C3 8.75 7.5 14 7.5 14C7.5 14 12 8.75 12 5.5C12 3.01 9.99 1 7.5 1Z" fill="#64748b"/><circle cx="7.5" cy="5.5" r="2" fill="white"/></svg>
+                    Via-Punkt
+                </button>
             </div>
         `;
         
@@ -770,17 +778,33 @@
                 }
                 gmapContainer.innerHTML = `<a class="map-link-btn" href="${gmapsUrl}" target="_blank">Route in Google Maps öffnen ↗</a>`;
 
-                let html = `<strong>Tour-Reihenfolge:</strong><br><ol style="margin: 6px 0 6px 20px; padding: 0;">`;
-                let sumLoadCount = 1, sumUnloadCount = 1;
-                validItems.filter(i => i.type !== 'via').forEach((stop) => {
-                    let typeLabel = stop.type === 'load' ? '<b style="color:#f97316;">[LADEN]</b>' : '<b style="color:#0284c7;">[ENTLADEN]</b>';
-                    let badgeTxt = stop.type === 'load' ? `L${sumLoadCount++}` : `U${sumUnloadCount++}`;
+                // --- LIFO UMGEKEHRTE REIHENFOLGE (Ohne "nach LIFO-Prinzip") ---
+                let nonViaStops = validItems.filter(i => i.type !== 'via');
+                let displayStops = [...nonViaStops].reverse(); // Liste für die Anzeige umdrehen (Last In, First Out)
+
+                let html = `<strong>Beladereihenfolge (LIFO):</strong><br><ol style="margin: 6px 0 6px 20px; padding: 0;">`;
+                
+                displayStops.forEach((stop) => {
+                    // Indizes für Labels bestimmen basierend auf der ursprünglichen Tour-Reihenfolge
+                    let originalIndex = nonViaStops.indexOf(stop);
+                    let loadSeq = 1, unloadSeq = 1;
+                    nonViaStops.forEach((s, idx) => {
+                        if (idx <= originalIndex) {
+                            if (s.type === 'load') loadSeq++;
+                            if (s.type === 'unload') unloadSeq++;
+                        }
+                    });
+                    if (stop.type === 'load') loadSeq--;
+                    else if (stop.type === 'unload') unloadSeq--;
+
+                    let badgeTxt = stop.type === 'load' ? `L${loadSeq}` : `U${unloadSeq}`;
                     let badgeBg = stop.type === 'load' ? '#f97316' : '#0284c7';
                     let typeBadgeHtml = `<span style="background-color: ${badgeBg}; color: white; padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; font-weight: bold;">${badgeTxt}</span>`;
                     let kollBadge = stop.koll ? `(${stop.koll} Koll)` : '';
                     let formattedName = formatAddressNameBold(stop.name);
-                    html += `<li>${typeLabel} ${typeBadgeHtml} ${formattedName} ${kollBadge}</li>`;
+                    html += `<li>${typeBadgeHtml} ${formattedName} ${kollBadge}</li>`;
                 });
+                
                 html += `</ol><hr style="border:0; border-top:1px solid var(--border-color); margin:8px 0;">`;
                 html += `<strong>Gesamtstrecke:</strong> ${(route.distance / 1000).toFixed(1)} km | <strong>Geschätzte Zeit:</strong> ${(route.duration / 3600).toFixed(1)} Std.`;
 
