@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VD Transport AS - Truck Route Planner & OCR Live-Optimierung</title>
+    <title>VD Transport AS - Truck Route Planner</title>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -51,40 +51,6 @@
 
         h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 4px 0; color: var(--text-color); }
         .subtitle { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; }
-
-        /* OCR Upload Sektion */
-        .ocr-section {
-            background: rgba(2, 132, 199, 0.05);
-            border: 1px dashed var(--primary-color);
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 16px;
-            text-align: center;
-        }
-        .ocr-section p {
-            font-size: 0.78rem;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-            line-height: 1.3;
-        }
-        .btn-ocr {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.85rem;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            width: 100%;
-            transition: background 0.2s;
-        }
-        .btn-ocr:hover { background-color: var(--primary-hover); }
-        #ocr-file-input { display: none; }
 
         .input-group { position: relative; margin-bottom: 14px; }
         label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.85rem; color: var(--text-color); }
@@ -223,20 +189,7 @@
     <!-- Linke Spalte -->
     <div id="sidebar">
         <h1>VD Transport AS</h1>
-        <div class="subtitle">Truck Route Planner & OCR Live-Optimierung</div>
-
-        <div class="info-banner" style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 10px 12px; border-radius: 6px; font-size: 0.8rem; margin-bottom: 16px;">
-            Tipp: Korrigierter OCR-Parser für Ekornes-Lastelisten (präzise Kollizahlen & vollständige U/R-Positionen).
-        </div>
-
-        <!-- OCR Upload Sektion -->
-        <div class="ocr-section">
-            <p>Ekornes-Lasteliste per OCR einlesen & automatisch parsen</p>
-            <input type="file" id="ocr-file-input" accept="image/*">
-            <button class="btn-ocr" onclick="document.getElementById('ocr-file-input').click()">
-                📸 Lasteliste fotografieren / hochladen
-            </button>
-        </div>
+        <div class="subtitle">Truck Route Planner</div>
 
         <div class="input-group">
             <label>Start / Depot</label>
@@ -256,7 +209,7 @@
         </div>
 
         <div id="addressListContainer">
-            <div class="empty-hint" id="emptyHint">Noch keine Stopps hinzugefügt. Nutze OCR oder Rechtsklick auf die Karte.</div>
+            <div class="empty-hint" id="emptyHint">Noch keine Stopps hinzugefügt. Nutze die Eingabe oder Rechtsklick auf die Karte.</div>
         </div>
 
         <div class="input-group" style="margin-top: 12px; margin-bottom: 6px;">
@@ -290,7 +243,7 @@
         <div id="gmapLinkContainer"></div>
         
         <div class="status-box">
-            <strong>Status:</strong> <span id="statusText">Bereit. Marker bewegen oder OCR nutzen.</span>
+            <strong>Status:</strong> <span id="statusText">Bereit. Marker bewegen oder Stopps hinzufügen.</span>
         </div>
 
         <div id="output" class="stop-list">
@@ -306,13 +259,12 @@
         </div>
 
         <div id="debugBox" class="debug-box">
-            [SYSTEM] Routenplanungssystem & Tesseract.js OCR voll einsatzbereit.
+            [SYSTEM] Routenplanungssystem voll einsatzbereit.
         </div>
     </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
     let currentStopType = 'unload';
 
@@ -537,7 +489,7 @@
     }
 
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('.input-group') && !e.target.closest('.ocr-section')) {
+        if (!e.target.closest('.input-group')) {
             document.querySelectorAll('.suggestions-box').forEach(box => box.innerHTML = "");
         }
     });
@@ -607,7 +559,7 @@
         container.innerHTML = "";
 
         if (addresses.length === 0) {
-            container.innerHTML = `<div class="empty-hint">Noch keine Stopps hinzugefügt. Rechtsklick auf die Karte oder OCR nutzen.</div>`;
+            container.innerHTML = `<div class="empty-hint">Noch keine Stopps hinzugefügt. Rechtsklick auf die Karte oder manuelle Eingabe nutzen.</div>`;
             if (clearAllBtn) clearAllBtn.style.display = 'none';
             return;
         } else {
@@ -663,119 +615,6 @@
         updateAddressUI(); 
         await calculateRoute();
     }
-
-    // --- HOCHROBUSTER OCR & EKORNES TABELLEN-PARSER ---
-    document.getElementById('ocr-file-input').addEventListener('change', async function(e) {
-        const file = e.target.files[0];
-        if(!file) return;
-
-        logDebug(`Starte präzise Tesseract.js OCR-Analyse für ${file.name}...`);
-        const statusEl = document.getElementById('statusText');
-        statusEl.innerText = "Lese Lasteliste (Präzisions-Parser)..."; statusEl.className = "pulsing";
-
-        try {
-            const worker = await Tesseract.createWorker('eng+nor');
-            const ret = await worker.recognize(file);
-            await worker.terminate();
-
-            const text = ret.data.text;
-            logDebug("OCR Text eingelesen. Analysiere Zeilenstruktur...");
-
-            let extractedStops = [];
-            const lines = text.split('\n');
-            
-            for (let i = 0; i < lines.length; i++) {
-                let line = lines[i].trim();
-                
-                // 1. Position erkennen (akzeptiert U, R oder beliebige Buchstaben gefolgt von Nummer, z.B. U 27, R 29)
-                let posMatch = line.match(/\b([A-Z])\s*0?(\d{1,2})\b/i);
-                if (!posMatch) continue;
-
-                let prefix = posMatch[1].toUpperCase();
-                let numStr = posMatch[2];
-                let fullPos = `${prefix} ${numStr}`;
-
-                // Zeilenkontext aus aktueller und den nächsten 2 Zeilen bilden
-                let contextBlock = line;
-                for(let j = 1; j <= 2 && (i+j) < lines.length; j++) {
-                    contextBlock += " " + lines[i+j];
-                }
-
-                // 2. Zielort exakt über norwegische Postleitzahl oder Ortsname bestimmen
-                let targetCity = "";
-                if (contextBlock.match(/7606|levanger/i)) {
-                    targetCity = "Levanger";
-                } else if (contextBlock.match(/7714|7725|steinkjer/i)) {
-                    targetCity = "Steinkjer";
-                } else if (contextBlock.match(/7500|stjordal/i)) {
-                    targetCity = "Stjørdal";
-                } else if (contextBlock.match(/1900|fetsund/i)) {
-                    targetCity = "Fetsund";
-                } else if (contextBlock.match(/6222|ikornnes/i)) {
-                    targetCity = "Ikornnes";
-                }
-
-                if (!targetCity) continue;
-
-                // 3. Kollizahl isolieren: Exakte Ermittlung ohne Positionsnummer-Übernahme
-                let kollVal = 1;
-                // Suche nach einer Zahl direkt vor einer Gewichtsangabe (z.B. "1 26,00" oder "5 90,00")
-                let weightMatch = contextBlock.match(/\b(\d{1,3})\s+\d+,\d{2}/);
-                if (weightMatch) {
-                    let val = parseInt(weightMatch[1]);
-                    if (val > 0 && val < 500) kollVal = val;
-                } else {
-                    // Fallback: Finde alle Zahlen, ignoriere aber die gefundene Positionsnummer selbst
-                    let allNums = contextBlock.match(/\b(\d{1,3})\b/g);
-                    if (allNums) {
-                        let filtered = allNums.filter(n => parseInt(n) !== parseInt(numStr) && parseInt(n) > 0 && parseInt(n) < 100);
-                        if (filtered.length > 0) {
-                            kollVal = parseInt(filtered[0]);
-                        }
-                    }
-                }
-
-                let geoQuery = targetCity.toLowerCase().includes("steinkjer") ? "Steinkjer, Norwegen" : 
-                               (targetCity.toLowerCase().includes("levanger") ? "Levanger, Norwegen" : targetCity);
-                
-                let geoResult = await geocodeAddress(geoQuery);
-                if (geoResult) {
-                    extractedStops.push({
-                        pos: fullPos,
-                        koll: kollVal,
-                        name: geoResult.name,
-                        lat: geoResult.lat,
-                        lng: geoResult.lng,
-                        type: (prefix === 'L' || targetCity.toLowerCase().includes("ikornnes")) ? 'load' : 'unload'
-                    });
-                }
-            }
-
-            // Duplikate nach Positionsnummer bereinigen und sortieren
-            let uniqueStops = [];
-            let seenPositions = new Set();
-            for(let stop of extractedStops) {
-                if(!seenPositions.has(stop.pos)) {
-                    seenPositions.add(stop.pos);
-                    uniqueStops.push(stop);
-                }
-            }
-
-            if (uniqueStops.length > 0) {
-                addresses = uniqueStops;
-                updateAddressUI();
-                await calculateRoute();
-                logDebug(`OCR erfolgreich: ${addresses.length} Stopps fehlerfrei eingelesen.`);
-            } else {
-                logDebug("Keine Stopps im OCR-Text erkannt.", "warn");
-                alert("Konnte keine Zielorte aus dem Bild extrahieren. Bitte manuell hinzufügen.");
-            }
-        } catch (err) {
-            logDebug("OCR Fehler: " + err.message);
-        } finally {
-            statusEl.innerText = "Bereit."; statusEl.className = "";
-        }
-    });
 
     async function calculateRoute() {
         const statusEl = document.getElementById('statusText');
