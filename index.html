@@ -75,8 +75,8 @@
         input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: var(--primary-color); }
         
         .search-row { display: flex; gap: 8px; align-items: stretch; }
+        .search-row input[type="text"] { flex: 1; }
 
-        /* Custom Dropdown (Icon-Only) */
         .custom-select-wrapper { position: relative; width: 36px; user-select: none; flex-shrink: 0; }
         .custom-select-trigger {
             display: flex; align-items: center; justify-content: center;
@@ -97,7 +97,6 @@
         .custom-option:last-child { border-bottom: none; }
         .custom-option:hover { background: #f1f5f9; }
 
-        /* Package Input Wrapper */
         .package-input-wrapper { display: flex; align-items: center; gap: 4px; background: #fff; border: 1px solid var(--border-color); border-radius: 6px; padding: 0 6px; width: 75px; flex-shrink: 0; box-sizing: border-box; }
         .package-input-wrapper input { border: none; padding: 8px 0; width: 42px; text-align: center; font-size: 0.85rem; background: transparent; }
         .package-input-wrapper input:focus { outline: none; }
@@ -145,7 +144,6 @@
             border: 1px solid var(--border-color); font-size: 0.85rem; 
             user-select: none; transition: background 0.2s;
         }
-        .address-item.dragging { opacity: 0.4; background: #e2e8f0; }
         
         .address-content { display: flex; align-items: center; gap: 8px; flex-grow: 1; overflow: hidden; }
         .address-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; width: 100%; }
@@ -178,7 +176,6 @@
         
         .debug-box { background: #0f172a; color: #38bdf8; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 0.75rem; max-height: 130px; overflow-y: auto; margin-top: 16px; }
 
-        /* Rechte Spalte (Karte) */
         #right-column { display: flex; flex-direction: column; gap: 20px; }
         #map-container { background: var(--card-bg); padding: 12px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); height: 580px; display: flex; flex-direction: column; border: 1px solid var(--border-color); }
         #map { width: 100%; flex-grow: 1; border-radius: 8px; cursor: crosshair; }
@@ -189,7 +186,6 @@
 <body>
 
 <div class="app-container">
-    <!-- Linke Spalte -->
     <div id="sidebar">
         <h1>VD Transport AS</h1>
         <div class="subtitle">Truck Route Planner</div>
@@ -218,8 +214,7 @@
         <div class="input-group" style="margin-top: 12px; margin-bottom: 6px;">
             <label>Neuen Stopp hinzufügen</label>
             <div class="search-row">
-                <input type="text" id="newAddressInput" placeholder="z.B. Steinkjer, Levanger..." oninput="handleNewAddressInput(this)" onkeydown="handleKeyDown(event)">
-                
+                <!-- 1. Stop-Typ -->
                 <div class="custom-select-wrapper" id="stopTypeCustomSelect">
                     <div class="custom-select-trigger" onclick="toggleCustomDropdown()">
                         <span id="selectedIconLabel" style="display:flex; align-items:center; justify-content:center;">
@@ -239,10 +234,14 @@
                     </div>
                 </div>
 
+                <!-- 2. Kollis -->
                 <div class="package-input-wrapper" title="Anzahl Kollis">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                    <input type="number" id="newAddressKoll" value="1" min="1" max="999" maxlength="3">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    <input type="number" id="newAddressKoll" value="1" min="1" max="999" maxlength="3" style="color:#ef4444; font-weight:bold;">
                 </div>
+
+                <!-- 3. Name (Suchfeld) -->
+                <input type="text" id="newAddressInput" placeholder="z.B. Steinkjer, Levanger..." oninput="handleNewAddressInput(this)" onkeydown="handleKeyDown(event)">
             </div>
             <div id="newAddressSuggestions" class="suggestions-box"></div>
         </div>
@@ -259,7 +258,6 @@
         </div>
     </div>
 
-    <!-- Rechte Spalte -->
     <div id="right-column">
         <div id="map-container">
             <div style="font-weight:600; font-size:0.9rem; margin-bottom:8px; color:var(--text-color);">Live-Routenkarte</div>
@@ -320,59 +318,67 @@
     }
 
     function cleanAndFormatAddress(displayName, addressObj) {
-        let rawParts = displayName.split(',').map(p => p.trim());
-        let nameOrCompany = "";
-
-        if (rawParts.length > 0 && !rawParts[0].match(/^\d/) && addressObj) {
-            let road = addressObj.road || addressObj.pedestrian || "";
-            if (!road || !rawParts[0].toLowerCase().includes(road.toLowerCase())) {
-                nameOrCompany = rawParts[0];
-            }
-        }
-
+        if (!displayName) return "";
+        
         if (!addressObj) {
-            let parts = [...rawParts];
-            if (parts.length > 0) {
-                let last = parts[parts.length - 1].toLowerCase();
-                if (last.includes('norge') || last.includes('norway')) parts[parts.length - 1] = 'NO';
-                else if (last.includes('sverige') || last.includes('sweden')) parts[parts.length - 1] = 'SE';
+            let rawParts = displayName.split(',').map(p => p.trim());
+            let unique = [];
+            rawParts.forEach(p => {
+                if (!unique.some(u => u.toLowerCase() === p.toLowerCase())) {
+                    unique.push(p);
+                }
+            });
+            return unique.join(', ');
+        }
+
+        const a = addressObj;
+
+        // 1. Firmenname / POI / Name
+        let name = a.company || a.amenity || a.shop || a.office || a.building || a.industrial || a.craft || a.tourism || a.historic || a.leisure || a.railway || "";
+        
+        if (!name) {
+            let rawParts = displayName.split(',').map(p => p.trim());
+            if (rawParts.length > 0) {
+                let first = rawParts[0];
+                let isStreet = a.road && first.toLowerCase().includes(a.road.toLowerCase());
+                let isCity = (a.city || a.town || a.village) && first.toLowerCase() === (a.city || a.town || a.village || "").toLowerCase();
+                let isPostcode = a.postcode && first.includes(a.postcode);
+                let isCountry = (a.country || "").toLowerCase() === first.toLowerCase();
+
+                if (!isStreet && !isCity && !isPostcode && !isCountry) {
+                    name = first;
+                }
             }
-            return parts.slice(0, 3).join(', ');
         }
 
-        let road = addressObj.road || addressObj.pedestrian || "";
-        let houseNumber = addressObj.house_number ? ` ${addressObj.house_number}` : "";
-        let streetPart = road ? `${road}${houseNumber}` : "";
+        // 2. Straße & Hausnummer
+        let road = a.road || a.pedestrian || a.street || "";
+        let houseNum = a.house_number || "";
+        let streetPart = road ? (houseNum ? `${road} ${houseNum}` : road) : "";
 
-        let postcode = addressObj.postcode || "";
-        let city = addressObj.city || addressObj.town || addressObj.village || addressObj.municipality || "";
-        let cityPart = (postcode && city) ? `${postcode} ${city}` : (city || postcode);
+        // 3. PLZ + Ort
+        let postcode = a.postcode || "";
+        let city = a.city || a.town || a.village || a.municipality || a.county || "";
+        let cityPart = postcode ? (city ? `${postcode} ${city}` : postcode) : city;
 
-        let countryCode = "";
-        if (addressObj.country_code) {
-            countryCode = addressObj.country_code.toUpperCase();
-        } else {
-            let lastPart = rawParts[rawParts.length - 1].toLowerCase();
-            if (lastPart.includes('norge') || lastPart.includes('norway')) countryCode = 'NO';
-            else if (lastPart.includes('sverige') || lastPart.includes('sweden')) countryCode = 'SE';
-            else if (lastPart.includes('danmark') || lastPart.includes('denmark')) countryCode = 'DK';
-            else if (lastPart.includes('deutschland') || lastPart.includes('germany')) countryCode = 'DE';
-            else countryCode = rawParts[rawParts.length - 1].toUpperCase();
-        }
+        // 4. Land
+        let countryCode = (a.country_code || "").toUpperCase();
 
+        // Zusammenbau
+        let parts = [];
+        if (name) parts.push(name);
+        if (streetPart) parts.push(streetPart);
+        if (cityPart) parts.push(cityPart);
+        if (countryCode) parts.push(countryCode);
+
+        // Duplikate strikt filtern
         let cleanParts = [];
-        if (nameOrCompany && nameOrCompany.toLowerCase() !== streetPart.toLowerCase()) {
-            cleanParts.push(nameOrCompany);
-        }
-        if (streetPart) {
-            cleanParts.push(streetPart);
-        }
-        if (cityPart) {
-            cleanParts.push(cityPart);
-        }
-        if (countryCode) {
-            cleanParts.push(countryCode);
-        }
+        parts.forEach(p => {
+            let trimmed = p.trim();
+            if (trimmed && !cleanParts.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
+                cleanParts.push(trimmed);
+            }
+        });
 
         return cleanParts.join(', ');
     }
@@ -410,7 +416,12 @@
     let previewMarkerLayer = L.layerGroup();
 
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' });
-    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles © Esri' });
+    
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { 
+        maxZoom: 19, 
+        maxNativeZoom: 18, 
+        attribution: 'Tiles © Esri' 
+    });
 
     const map = L.map('map', {
         center: [62.3342430, 6.5856790],
@@ -637,12 +648,36 @@
         await calculateRoute();
     }
 
-    async function updateStopKoll(tourIndex, val) {
-        if (!addresses[tourIndex]) return;
-        let parsed = parseInt(val);
-        if (isNaN(parsed) || parsed < 1) parsed = 1;
-        addresses[tourIndex].koll = parsed;
-        await calculateRoute();
+    function makeKolliEditable(event, tourIndex) {
+        event.stopPropagation();
+        const container = event.currentTarget;
+        if (container.querySelector('input')) return;
+
+        const currentValue = addresses[tourIndex].koll || 1;
+
+        container.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            <input type="number" value="${currentValue}" min="1" max="999" style="width: 42px; padding: 1px 2px; font-size: 0.8rem; border: 1px solid #ef4444; border-radius: 4px; color: #ef4444; font-weight: bold; text-align: center; outline: none; background: #fff;">
+        `;
+
+        const input = container.querySelector('input');
+        input.focus();
+        input.select();
+
+        const save = async () => {
+            let val = parseInt(input.value);
+            if (isNaN(val) || val < 1) val = 1;
+            addresses[tourIndex].koll = val;
+            updateAddressUI();
+            await calculateRoute();
+        };
+
+        input.addEventListener('blur', save);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                save();
+            }
+        });
     }
 
     function dragStart(e, index) { draggedIndex = index; e.dataTransfer.effectAllowed = 'move'; }
@@ -679,12 +714,11 @@
             
             let colorBadge = `<span style="background-color: ${labelBgColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; flex-shrink: 0;" title="Typ: ${addr.type}">${labelText}</span>`;
 
-            // Identisches Koll-Input-Element für die oberen Stopps mit editierbarem Wert
             let kollInfo = `
-                <div class="package-input-wrapper" style="width: 65px; height: 26px; padding: 0 4px;" title="Anzahl Kollis ändern">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                    <input type="number" value="${addr.koll || 1}" min="1" max="999" maxlength="3" style="padding: 2px 0; font-size: 0.75rem;" onchange="updateStopKoll(${tourIndex}, this.value)" oninput="updateStopKoll(${tourIndex}, this.value)">
-                </div>`;
+                <span class="kolli-click-area" onclick="makeKolliEditable(event, ${tourIndex})" style="display:inline-flex; align-items:center; gap:3px; color:#ef4444; font-weight:bold; cursor:pointer; padding:2px 4px; border-radius:4px;" title="Klicken zum Ändern">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    <span>${addr.koll || 1}</span>
+                </span>`;
 
             let formattedName = formatAddressNameBold(addr.name);
 
@@ -831,9 +865,15 @@
                     let badgeTxt = stop.type === 'load' ? `L${loadSeq}` : `U${unloadSeq}`;
                     let badgeBg = stop.type === 'load' ? '#f97316' : '#0284c7';
                     let typeBadgeHtml = `<span style="background-color: ${badgeBg}; color: white; padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; font-weight: bold;">${badgeTxt}</span>`;
-                    let kollBadge = stop.koll ? `<strong>(${stop.koll} Koll)</strong>` : '';
+                    
+                    let kollBadge = `
+                        <span style="display:inline-flex; align-items:center; gap:3px; color:#ef4444; font-weight:bold; margin-left:6px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                            ${stop.koll || 1}
+                        </span>`;
+
                     let formattedName = formatAddressNameBold(stop.name);
-                    html += `<li>${typeBadgeHtml} ${formattedName} ${kollBadge}</li>`;
+                    html += `<li style="margin-bottom: 4px;">${typeBadgeHtml} ${kollBadge} ${formattedName}</li>`;
                 });
                 
                 html += `</ol><hr style="border:0; border-top:1px solid var(--border-color); margin:8px 0;">`;
