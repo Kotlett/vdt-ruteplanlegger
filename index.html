@@ -177,10 +177,6 @@
         #map { width: 100%; flex-grow: 1; border-radius: 8px; cursor: crosshair; }
 
         .map-popup-btn { background: var(--primary-color); color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.75rem; width: 100%; margin-top: 4px; }
-        .map-popup-btn-load { background: #f97316; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.75rem; width: 100%; margin-top: 4px; }
-        .map-popup-btn-unload { background: var(--primary-color); color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.75rem; width: 100%; margin-top: 4px; }
-        .map-popup-btn-via { background: var(--text-muted); color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.75rem; width: 100%; margin-top: 4px; }
-        .map-popup-btn-depot { background: #e2e8f0; color: var(--text-color); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: 4px; font-weight: normal; cursor: pointer; font-size: 0.7rem; width: 100%; margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -215,7 +211,7 @@
         <div class="input-group" style="margin-top: 12px; margin-bottom: 6px;">
             <label>Neuen Stopp hinzufügen</label>
             <div class="search-row">
-                <input type="text" id="newAddressInput" placeholder="z.B. Ekornes, Håg, Vartdal..." oninput="handleNewAddressInput(this)" onkeydown="handleKeyDown(event)">
+                <input type="text" id="newAddressInput" placeholder="z.B. Steinkjer, Levanger..." oninput="handleNewAddressInput(this)" onkeydown="handleKeyDown(event)">
                 
                 <div class="custom-select-wrapper" id="stopTypeCustomSelect">
                     <div class="custom-select-trigger" onclick="toggleCustomDropdown()">
@@ -311,28 +307,62 @@
             .replace(/[íìîïīįĭǐȉȋỉĩị]/gi, 'i');
     }
 
-    // Saubere und stabile Adress- & Namensaufbereitung
-    function cleanAndFormatAddress(item) {
-        let addr = item.address || {};
-        let name = item.name || addr.amenity || addr.shop || addr.office || addr.leisure || "";
-        let road = addr.road || addr.pedestrian || addr.footway || "";
-        let houseNumber = addr.house_number ? ` ${addr.house_number}` : "";
-        let street = road ? `${road}${houseNumber}` : "";
-        let postcode = addr.postcode || "";
-        let city = addr.city || addr.town || addr.village || addr.municipality || "";
+    function cleanAndFormatAddress(displayName, addressObj) {
+        let rawParts = displayName.split(',').map(p => p.trim());
+        let nameOrCompany = "";
+
+        if (rawParts.length > 0 && !rawParts[0].match(/^\d/) && addressObj) {
+            let road = addressObj.road || addressObj.pedestrian || "";
+            if (!road || !rawParts[0].toLowerCase().includes(road.toLowerCase())) {
+                nameOrCompany = rawParts[0];
+            }
+        }
+
+        if (!addressObj) {
+            let parts = [...rawParts];
+            if (parts.length > 0) {
+                let last = parts[parts.length - 1].toLowerCase();
+                if (last.includes('norge') || last.includes('norway')) parts[parts.length - 1] = 'NO';
+                else if (last.includes('sverige') || last.includes('sweden')) parts[parts.length - 1] = 'SE';
+            }
+            return parts.slice(0, 3).join(', ');
+        }
+
+        let road = addressObj.road || addressObj.pedestrian || "";
+        let houseNumber = addressObj.house_number ? ` ${addressObj.house_number}` : "";
+        let streetPart = road ? `${road}${houseNumber}` : "";
+
+        let postcode = addressObj.postcode || "";
+        let city = addressObj.city || addressObj.town || addressObj.village || addressObj.municipality || "";
         let cityPart = (postcode && city) ? `${postcode} ${city}` : (city || postcode);
 
-        let main = name ? name : (street ? street : (item.display_name ? item.display_name.split(',')[0] : "Unbekannter Ort"));
-        let parts = [main];
-
-        if (name && street && !main.toLowerCase().includes(street.toLowerCase())) {
-            parts.push(street);
+        let countryCode = "";
+        if (addressObj.country_code) {
+            countryCode = addressObj.country_code.toUpperCase();
+        } else {
+            let lastPart = rawParts[rawParts.length - 1].toLowerCase();
+            if (lastPart.includes('norge') || lastPart.includes('norway')) countryCode = 'NO';
+            else if (lastPart.includes('sverige') || lastPart.includes('sweden')) countryCode = 'SE';
+            else if (lastPart.includes('danmark') || lastPart.includes('denmark')) countryCode = 'DK';
+            else if (lastPart.includes('deutschland') || lastPart.includes('germany')) countryCode = 'DE';
+            else countryCode = rawParts[rawParts.length - 1].toUpperCase();
         }
-        if (cityPart && !parts.some(p => p.toLowerCase().includes(cityPart.toLowerCase()))) {
-            parts.push(cityPart);
+
+        let cleanParts = [];
+        if (nameOrCompany && nameOrCompany.toLowerCase() !== streetPart.toLowerCase()) {
+            cleanParts.push(nameOrCompany);
+        }
+        if (streetPart) {
+            cleanParts.push(streetPart);
+        }
+        if (cityPart) {
+            cleanParts.push(cityPart);
+        }
+        if (countryCode) {
+            cleanParts.push(countryCode);
         }
 
-        return parts.join(', ');
+        return cleanParts.join(', ');
     }
 
     function formatAddressNameBold(fullName) {
@@ -380,11 +410,10 @@
 
     async function reverseGeocode(lat, lng) {
         try {
-            const currentZoom = Math.min(18, Math.max(14, map.getZoom()));
-            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=${currentZoom}&addressdetails=1`);
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
             const data = await response.json();
-            if (data) {
-                return cleanAndFormatAddress(data);
+            if (data && data.display_name) {
+                return cleanAndFormatAddress(data.display_name, data.address);
             }
             return `Punkt (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
         } catch (err) {
@@ -392,72 +421,63 @@
         }
     }
 
-    // Rechtsklick-Handler
-    map.on('contextmenu', async function(e) {
+    // --- WIEDERHERGESTELLTES RECHTSKLICK-POPUP-MENÜ ---
+    map.on('contextmenu', function(e) {
         const lat = e.latlng.lat;
         const lng = e.latlng.lng;
         
-        const popup = L.popup()
+        const popupContent = `
+            <div style="text-align: center; font-family: inherit; min-width: 140px;">
+                <div style="font-weight: 600; margin-bottom: 6px; font-size: 0.85rem; color: #1e293b;">Stopp hinzufügen:</div>
+                <button class="map-popup-btn" style="background: #f97316;" onclick="addStopFromMap(${lat}, ${lng}, 'load')">📥 Als Laden</button>
+                <button class="map-popup-btn" style="background: #0284c7;" onclick="addStopFromMap(${lat}, ${lng}, 'unload')">📤 Als Entladen</button>
+                <button class="map-popup-btn" style="background: #64748b;" onclick="addStopFromMap(${lat}, ${lng}, 'via')">📍 Als Via-Punkt</button>
+            </div>
+        `;
+        
+        L.popup()
             .setLatLng(e.latlng)
-            .setContent(`<div style="font-size: 13px; text-align: center; padding: 4px;"><b>Ermittle Standort...</b></div>`)
+            .setContent(popupContent)
             .openOn(map);
+    });
+
+    async function addStopFromMap(lat, lng, type) {
+        map.closePopup();
+        const statusEl = document.getElementById('statusText');
+        statusEl.innerText = "Ermittle Adresse...";
+        statusEl.className = "pulsing";
 
         try {
-            const currentZoom = Math.min(18, Math.max(14, map.getZoom()));
-            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=${currentZoom}&addressdetails=1`);
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
             const data = await response.json();
             
-            let cleanName = data ? cleanAndFormatAddress(data) : `Punkt (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
-            const idKey = `${lat.toFixed(5)}_${lng.toFixed(5)}`.replace(/\./g, '_');
+            let fullDisplayName = data && data.display_name ? data.display_name : `Punkt (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+            let cleanName = cleanAndFormatAddress(fullDisplayName, data ? data.address : null);
 
-            popup.setContent(`
-                <div style="font-size: 13px; max-width: 250px;" id="popup-container-${idKey}">
-                    <span style="font-size: 11px; color: #64748b; display:block; margin-bottom:6px; word-break: break-word;"><b>Standort:</b><br>${cleanName}</span>
-                    <button class="map-popup-btn-depot" id="btn-depot-${idKey}">Als Start / Depot setzen</button>
-                    <button class="map-popup-btn-load" id="btn-load-${idKey}">Laden hinzufügen</button>
-                    <button class="map-popup-btn-unload" id="btn-unload-${idKey}">Entladen hinzufügen</button>
-                    <button class="map-popup-btn-via" id="btn-via-${idKey}">Via-Punkt hinzufügen</button>
-                </div>
-            `);
+            addresses.push({ 
+                name: cleanName, 
+                lat: lat, 
+                lng: lng, 
+                type: type 
+            });
 
-            setTimeout(() => {
-                const container = document.getElementById(`popup-container-${idKey}`);
-                if (!container) return;
-
-                container.querySelector(`#btn-depot-${idKey}`).onclick = async () => {
-                    map.closePopup();
-                    depotData = { name: cleanName, lat: lat, lng: lng };
-                    document.getElementById('depotInput').value = depotData.name;
-                    await calculateRoute();
-                };
-
-                container.querySelector(`#btn-load-${idKey}`).onclick = async () => {
-                    map.closePopup();
-                    addresses.push({ name: cleanName, lat: lat, lng: lng, type: 'load' });
-                    updateAddressUI(); 
-                    await calculateRoute();
-                };
-
-                container.querySelector(`#btn-unload-${idKey}`).onclick = async () => {
-                    map.closePopup();
-                    addresses.push({ name: cleanName, lat: lat, lng: lng, type: 'unload' });
-                    updateAddressUI(); 
-                    await calculateRoute();
-                };
-
-                container.querySelector(`#btn-via-${idKey}`).onclick = async () => {
-                    map.closePopup();
-                    addresses.push({ name: cleanName, lat: lat, lng: lng, type: 'via' });
-                    updateAddressUI(); 
-                    await calculateRoute();
-                };
-            }, 50);
-
-        } catch (err) { 
-            logDebug(`Rechtsklick Fehler: ${err.message}`);
-            popup.setContent(`<div style="font-size: 12px; color: #ef4444;">Fehler beim Abrufen der Adresse.</div>`);
+            updateAddressUI(); 
+            await calculateRoute();
+            logDebug(`Stopp via Kartenmenü hinzugefügt: ${cleanName} (${type})`);
+        } catch (err) {
+            addresses.push({ 
+                name: `Standort (${lat.toFixed(3)}, ${lng.toFixed(3)})`, 
+                lat: lat, 
+                lng: lng, 
+                type: type 
+            });
+            updateAddressUI(); 
+            await calculateRoute();
+        } finally {
+            statusEl.innerText = "Bereit.";
+            statusEl.className = "";
         }
-    });
+    }
 
     function createMarkerIcon(text, bgColor) {
         return L.divIcon({
@@ -516,7 +536,7 @@
             boxElement.innerHTML = "";
             if (data && data.length > 0) {
                 data.forEach(item => {
-                    let cleanDisp = cleanAndFormatAddress(item);
+                    let cleanDisp = cleanAndFormatAddress(item.display_name, item.address);
 
                     const div = document.createElement('div');
                     div.className = 'suggestion-item';
@@ -545,8 +565,8 @@
             const response = await fetch(url);
             const data = await response.json();
             if (data && data.length > 0) {
-                let cleanDisp = cleanAndFormatAddress(data[0]);
-                return { name: cleanDisp, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon || data[0].lng) };
+                let cleanDisp = cleanAndFormatAddress(data[0].display_name, data[0].address);
+                return { name: cleanDisp, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lng || data[0].lon) };
             }
         } catch (e) {}
         return null;
@@ -726,13 +746,14 @@
 
             const allWaypoints = [depotData, ...validItems];
             const coordsString = allWaypoints.map(wp => `${wp.lng},${wp.lat}`).join(';');
-            
-            const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson&continue_straight=true`;
+            const radiusesStr = allWaypoints.map(() => '500').join(';');
+
+            const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson&radiuses=${radiusesStr}&continue_straight=true`;
             
             const response = await fetch(url);
             const data = await response.json();
             
-            if (data && data.code === "Ok" && data.routes && data.routes.length > 0) {
+            if (data.code === "Ok" && data.routes && data.routes.length > 0) {
                 const route = data.routes[0];
                 if (routeLayer) map.removeLayer(routeLayer);
                 routeLayer = L.geoJSON(route.geometry, { style: { color: '#0284c7', weight: 6, opacity: 0.85 } }).addTo(map);
@@ -749,20 +770,16 @@
                 }
                 gmapContainer.innerHTML = `<a class="map-link-btn" href="${gmapsUrl}" target="_blank">Route in Google Maps öffnen ↗</a>`;
 
-                // Beladereihenfolge (LIFO)
-                const nonViaStops = validItems.filter(i => i.type !== 'via');
-                const lifoStops = [...nonViaStops].reverse();
-
-                let html = `<strong>Beladereihenfolge (LIFO):</strong><br><ol style="margin: 6px 0 6px 20px; padding: 0;">`;
+                let html = `<strong>Tour-Reihenfolge:</strong><br><ol style="margin: 6px 0 6px 20px; padding: 0;">`;
                 let sumLoadCount = 1, sumUnloadCount = 1;
-                
-                lifoStops.forEach((stop) => {
+                validItems.filter(i => i.type !== 'via').forEach((stop) => {
+                    let typeLabel = stop.type === 'load' ? '<b style="color:#f97316;">[LADEN]</b>' : '<b style="color:#0284c7;">[ENTLADEN]</b>';
                     let badgeTxt = stop.type === 'load' ? `L${sumLoadCount++}` : `U${sumUnloadCount++}`;
                     let badgeBg = stop.type === 'load' ? '#f97316' : '#0284c7';
-                    let typeBadgeHtml = `<span style="background-color: ${badgeBg}; color: white; padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; font-weight: bold; margin-right: 4px;">${badgeTxt}</span>`;
+                    let typeBadgeHtml = `<span style="background-color: ${badgeBg}; color: white; padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; font-weight: bold;">${badgeTxt}</span>`;
                     let kollBadge = stop.koll ? `(${stop.koll} Koll)` : '';
                     let formattedName = formatAddressNameBold(stop.name);
-                    html += `<li>${typeBadgeHtml} ${formattedName} ${kollBadge}</li>`;
+                    html += `<li>${typeLabel} ${typeBadgeHtml} ${formattedName} ${kollBadge}</li>`;
                 });
                 html += `</ol><hr style="border:0; border-top:1px solid var(--border-color); margin:8px 0;">`;
                 html += `<strong>Gesamtstrecke:</strong> ${(route.distance / 1000).toFixed(1)} km | <strong>Geschätzte Zeit:</strong> ${(route.duration / 3600).toFixed(1)} Std.`;
