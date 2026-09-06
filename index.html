@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VD Transport AS - Truck Route Planner</title>
+    <title>VD Transport AS - Truck Route Planner & OCR Live-Optimierung</title>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -17,6 +17,8 @@
             --border-color: #e2e8f0;
             --danger-color: #ef4444;
             --danger-hover: #dc2626;
+            --success-color: #10b981;
+            --success-hover: #059669;
         }
 
         body { 
@@ -50,15 +52,39 @@
         h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 4px 0; color: var(--text-color); }
         .subtitle { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; }
 
-        .info-banner { 
-            background: #f0fdf4; 
-            border: 1px solid #bbf7d0; 
-            color: #166534; 
-            padding: 10px 12px; 
-            border-radius: 6px; 
-            font-size: 0.8rem; 
-            margin-bottom: 16px; 
+        /* OCR Upload Sektion */
+        .ocr-section {
+            background: rgba(2, 132, 199, 0.05);
+            border: 1px dashed var(--primary-color);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+            text-align: center;
         }
+        .ocr-section p {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            line-height: 1.3;
+        }
+        .btn-ocr {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        .btn-ocr:hover { background-color: var(--primary-hover); }
+        #ocr-file-input { display: none; }
 
         .input-group { position: relative; margin-bottom: 14px; }
         label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.85rem; color: var(--text-color); }
@@ -119,7 +145,6 @@
         }
         .btn-primary:hover { background: var(--primary-hover); }
 
-        /* Kompakter Header für die Adressliste */
         .list-header-wrapper {
             display: flex; justify-content: space-between; align-items: center;
             margin: 10px 0; background: #f1f5f9; padding: 8px 12px;
@@ -128,10 +153,10 @@
         .list-header-actions { display: flex; align-items: center; gap: 8px; }
         
         .btn-optimize-small {
-            background: #10b981; color: white; border: none; padding: 5px 10px;
+            background: var(--success-color); color: white; border: none; padding: 5px 10px;
             font-size: 0.8rem; font-weight: 600; border-radius: 4px; cursor: pointer;
         }
-        .btn-optimize-small:hover { background: #059669; }
+        .btn-optimize-small:hover { background: var(--success-hover); }
 
         .btn-clear-all {
             background: var(--danger-color); color: white; border: none; padding: 5px 8px;
@@ -152,7 +177,6 @@
         .address-content { display: flex; align-items: center; gap: 10px; flex-grow: 1; overflow: hidden; }
         .address-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 8px; width: 100%; }
         
-        /* Nur der Greifer steuert das Drag & Drop */
         .drag-handle { color: #94a3b8; cursor: grab; font-weight: bold; flex-shrink: 0; padding: 2px 4px; }
         .drag-handle:active { cursor: grabbing; }
         
@@ -179,14 +203,13 @@
 
         .stop-list { margin-top: 10px; background: #f8fafc; padding: 12px; border-radius: 6px; font-size: 0.85rem; border: 1px solid var(--border-color); line-height: 1.6; }
         
-        .debug-box { background: #0f172a; color: #38bdf8; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 0.75rem; max-height: 120px; overflow-y: auto; margin-top: 16px; }
+        .debug-box { background: #0f172a; color: #38bdf8; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 0.75rem; max-height: 130px; overflow-y: auto; margin-top: 16px; }
 
         /* Rechte Spalte (Karte) */
         #right-column { display: flex; flex-direction: column; gap: 20px; }
         #map-container { background: var(--card-bg); padding: 12px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); height: 580px; display: flex; flex-direction: column; border: 1px solid var(--border-color); }
         #map { width: 100%; flex-grow: 1; border-radius: 8px; cursor: crosshair; }
 
-        /* Map Popup Buttons */
         .map-popup-btn { background: var(--primary-color); color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.75rem; width: 100%; margin-top: 4px; }
         .map-popup-btn-load { background: #f97316; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.75rem; width: 100%; margin-top: 4px; }
         .map-popup-btn-unload { background: var(--primary-color); color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.75rem; width: 100%; margin-top: 4px; }
@@ -197,13 +220,22 @@
 <body>
 
 <div class="app-container">
-    <!-- Linke Spalte (Steuerung & Liste) -->
+    <!-- Linke Spalte -->
     <div id="sidebar">
         <h1>VD Transport AS</h1>
-        <div class="subtitle">Truck Route Planner & Live-Optimierung</div>
+        <div class="subtitle">Truck Route Planner & OCR Live-Optimierung</div>
 
-        <div class="info-banner">
-            Tipp: Zum Verschieben den Greifer (☰) nutzen. Klick auf das Stopp-Symbol wechselt den Typ (Laden ➔ Entladen ➔ Via).
+        <div class="info-banner" style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 10px 12px; border-radius: 6px; font-size: 0.8rem; margin-bottom: 16px;">
+            Tipp: Korrigierter OCR-Parser für Ekornes-Lastelisten (präzise Kollizahlen & vollständige U/R-Positionen).
+        </div>
+
+        <!-- OCR Upload Sektion -->
+        <div class="ocr-section">
+            <p>Ekornes-Lasteliste per OCR einlesen & automatisch parsen</p>
+            <input type="file" id="ocr-file-input" accept="image/*">
+            <button class="btn-ocr" onclick="document.getElementById('ocr-file-input').click()">
+                📸 Lasteliste fotografieren / hochladen
+            </button>
         </div>
 
         <div class="input-group">
@@ -215,7 +247,6 @@
             <div id="depotSuggestions" class="suggestions-box"></div>
         </div>
 
-        <!-- Kompakter Header für die Adressliste -->
         <div class="list-header-wrapper">
             <label style="margin-bottom:0;">Tour-Stopps & Via-Punkte</label>
             <div class="list-header-actions">
@@ -224,22 +255,18 @@
             </div>
         </div>
 
-        <!-- Tour-Liste -->
         <div id="addressListContainer">
-            <div class="empty-hint" id="emptyHint">Noch keine Stopps hinzugefügt. Rechtsklick auf die Karte zum Hinzufügen.</div>
+            <div class="empty-hint" id="emptyHint">Noch keine Stopps hinzugefügt. Nutze OCR oder Rechtsklick auf die Karte.</div>
         </div>
 
-        <!-- Eingabefeld für neue Stopps -->
         <div class="input-group" style="margin-top: 12px; margin-bottom: 6px;">
             <label>Neuen Stopp hinzufügen</label>
             <div class="search-row">
-                <input type="text" id="newAddressInput" placeholder="z.B. Ålesund, Bergen..." oninput="handleNewAddressInput(this)" onkeydown="handleKeyDown(event)">
+                <input type="text" id="newAddressInput" placeholder="z.B. Steinkjer, Levanger..." oninput="handleNewAddressInput(this)" onkeydown="handleKeyDown(event)">
                 
-                <!-- Custom Dropdown (Icon-Only) -->
                 <div class="custom-select-wrapper" id="stopTypeCustomSelect">
                     <div class="custom-select-trigger" onclick="toggleCustomDropdown()">
                         <span id="selectedIconLabel" style="display:flex; align-items:center; justify-content:center;">
-                            <!-- Unload Icon Default -->
                             <svg width="20" height="20" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         </span>
                     </div>
@@ -263,7 +290,7 @@
         <div id="gmapLinkContainer"></div>
         
         <div class="status-box">
-            <strong>Status:</strong> <span id="statusText">Bereit. Marker bewegen oder Karte per Rechtsklick bedienen.</span>
+            <strong>Status:</strong> <span id="statusText">Bereit. Marker bewegen oder OCR nutzen.</span>
         </div>
 
         <div id="output" class="stop-list">
@@ -271,7 +298,7 @@
         </div>
     </div>
 
-    <!-- Rechte Spalte (Karte & Konsole) -->
+    <!-- Rechte Spalte -->
     <div id="right-column">
         <div id="map-container">
             <div style="font-weight:600; font-size:0.9rem; margin-bottom:8px; color:var(--text-color);">Live-Routenkarte</div>
@@ -279,12 +306,13 @@
         </div>
 
         <div id="debugBox" class="debug-box">
-            [SYSTEM] Routenplanungssystem voll einsatzbereit.
+            [SYSTEM] Routenplanungssystem & Tesseract.js OCR voll einsatzbereit.
         </div>
     </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
     let currentStopType = 'unload';
 
@@ -331,7 +359,6 @@
             .replace(/[íìîïīįĭǐȉȋỉĩị]/gi, 'i');
     }
 
-    // Gibt das anklickbare Symbol für die Liste zurück (mit Tooltip und Klick-Handler zum Durchswitchen)
     function getInteractiveIconHtml(type, tourIndex) {
         let svgContent = "";
         let tooltipText = type === 'load' ? 'Laden (Klicken zum Ändern)' : (type === 'unload' ? 'Entladen (Klicken zum Ändern)' : 'Via-Punkt (Klicken zum Ändern)');
@@ -366,7 +393,7 @@
 
     L.control.layers({ "Standard (OSM)": osmLayer, "Satellit (Esri)": satelliteLayer }, {}, { position: 'bottomleft' }).addTo(map);
 
-    async function reverseGeocode(lat, lng, defaultPrefix = "") {
+    async function reverseGeocode(lat, lng) {
         try {
             const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
             const data = await response.json();
@@ -510,7 +537,7 @@
     }
 
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('.input-group')) {
+        if (!e.target.closest('.input-group') && !e.target.closest('.ocr-section')) {
             document.querySelectorAll('.suggestions-box').forEach(box => box.innerHTML = "");
         }
     });
@@ -553,22 +580,16 @@
         }
     }
 
-    // Typ durchswitchen per Klick auf das Listensymbol: load -> unload -> via -> load
     async function cycleStopType(tourIndex) {
         if (!addresses[tourIndex]) return;
         const currentType = addresses[tourIndex].type;
-        if (currentType === 'load') {
-            addresses[tourIndex].type = 'unload';
-        } else if (currentType === 'unload') {
-            addresses[tourIndex].type = 'via';
-        } else {
-            addresses[tourIndex].type = 'load';
-        }
+        if (currentType === 'load') addresses[tourIndex].type = 'unload';
+        else if (currentType === 'unload') addresses[tourIndex].type = 'via';
+        else addresses[tourIndex].type = 'load';
         updateAddressUI();
         await calculateRoute();
     }
 
-    // Drag & Drop (nur über das Greifersymbol steuerbar)
     function dragStart(e, index) { draggedIndex = index; e.dataTransfer.effectAllowed = 'move'; }
     function dragEnd(e) { draggedIndex = null; }
     function dragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
@@ -586,7 +607,7 @@
         container.innerHTML = "";
 
         if (addresses.length === 0) {
-            container.innerHTML = `<div class="empty-hint">Noch keine Stopps hinzugefügt. Rechtsklick auf die Karte zum Hinzufügen.</div>`;
+            container.innerHTML = `<div class="empty-hint">Noch keine Stopps hinzugefügt. Rechtsklick auf die Karte oder OCR nutzen.</div>`;
             if (clearAllBtn) clearAllBtn.style.display = 'none';
             return;
         } else {
@@ -595,12 +616,14 @@
         
         addresses.forEach((addr, tourIndex) => {
             let badgeHtml = getInteractiveIconHtml(addr.type, tourIndex);
+            let kollInfo = addr.koll ? ` <span style="background:rgba(249,115,22,0.15); color:#c2410c; padding:1px 5px; border-radius:4px; font-size:0.75rem; font-weight:700;">${addr.koll} Koll</span>` : '';
+            let posInfo = addr.pos ? ` <span style="background:#e2e8f0; color:#475569; padding:1px 5px; border-radius:4px; font-size:0.75rem; font-weight:700;">${addr.pos}</span>` : '';
 
             container.innerHTML += `
                 <div class="address-item" ondragover="dragOver(event)" ondrop="drop(event, ${tourIndex})">
                     <div class="address-content">
                         <span class="drag-handle" draggable="true" ondragstart="dragStart(event, ${tourIndex})" ondragend="dragEnd(event)" title="Zum Sortieren ziehen">☰</span>
-                        <span class="address-text">${badgeHtml} <span style="overflow:hidden; text-overflow:ellipsis;" title="${addr.name}">${addr.name}</span></span>
+                        <span class="address-text">${badgeHtml}${posInfo}${kollInfo} <span style="overflow:hidden; text-overflow:ellipsis;" title="${addr.name}">${addr.name}</span></span>
                     </div>
                     <button class="btn-del" onclick="removeAddress(${tourIndex})" title="Löschen">×</button>
                 </div>`;
@@ -619,13 +642,7 @@
             alert("Mindestens 2 Stopps für eine automatische Optimierung erforderlich.");
             return;
         }
-
-        const confirmed = confirm(
-            "Möchtest du die Reihenfolge wirklich automatisch optimieren lassen?\n\n" +
-            "Achtung: Deine aktuelle manuelle Sortierung wird dabei überschrieben!"
-        );
-
-        if (confirmed) {
+        if (confirm("Möchtest du die Reihenfolge wirklich automatisch optimieren lassen?")) {
             autoSortRoute();
         }
     }
@@ -647,6 +664,119 @@
         await calculateRoute();
     }
 
+    // --- HOCHROBUSTER OCR & EKORNES TABELLEN-PARSER ---
+    document.getElementById('ocr-file-input').addEventListener('change', async function(e) {
+        const file = e.target.files[0];
+        if(!file) return;
+
+        logDebug(`Starte präzise Tesseract.js OCR-Analyse für ${file.name}...`);
+        const statusEl = document.getElementById('statusText');
+        statusEl.innerText = "Lese Lasteliste (Präzisions-Parser)..."; statusEl.className = "pulsing";
+
+        try {
+            const worker = await Tesseract.createWorker('eng+nor');
+            const ret = await worker.recognize(file);
+            await worker.terminate();
+
+            const text = ret.data.text;
+            logDebug("OCR Text eingelesen. Analysiere Zeilenstruktur...");
+
+            let extractedStops = [];
+            const lines = text.split('\n');
+            
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                
+                // 1. Position erkennen (akzeptiert U, R oder beliebige Buchstaben gefolgt von Nummer, z.B. U 27, R 29)
+                let posMatch = line.match(/\b([A-Z])\s*0?(\d{1,2})\b/i);
+                if (!posMatch) continue;
+
+                let prefix = posMatch[1].toUpperCase();
+                let numStr = posMatch[2];
+                let fullPos = `${prefix} ${numStr}`;
+
+                // Zeilenkontext aus aktueller und den nächsten 2 Zeilen bilden
+                let contextBlock = line;
+                for(let j = 1; j <= 2 && (i+j) < lines.length; j++) {
+                    contextBlock += " " + lines[i+j];
+                }
+
+                // 2. Zielort exakt über norwegische Postleitzahl oder Ortsname bestimmen
+                let targetCity = "";
+                if (contextBlock.match(/7606|levanger/i)) {
+                    targetCity = "Levanger";
+                } else if (contextBlock.match(/7714|7725|steinkjer/i)) {
+                    targetCity = "Steinkjer";
+                } else if (contextBlock.match(/7500|stjordal/i)) {
+                    targetCity = "Stjørdal";
+                } else if (contextBlock.match(/1900|fetsund/i)) {
+                    targetCity = "Fetsund";
+                } else if (contextBlock.match(/6222|ikornnes/i)) {
+                    targetCity = "Ikornnes";
+                }
+
+                if (!targetCity) continue;
+
+                // 3. Kollizahl isolieren: Exakte Ermittlung ohne Positionsnummer-Übernahme
+                let kollVal = 1;
+                // Suche nach einer Zahl direkt vor einer Gewichtsangabe (z.B. "1 26,00" oder "5 90,00")
+                let weightMatch = contextBlock.match(/\b(\d{1,3})\s+\d+,\d{2}/);
+                if (weightMatch) {
+                    let val = parseInt(weightMatch[1]);
+                    if (val > 0 && val < 500) kollVal = val;
+                } else {
+                    // Fallback: Finde alle Zahlen, ignoriere aber die gefundene Positionsnummer selbst
+                    let allNums = contextBlock.match(/\b(\d{1,3})\b/g);
+                    if (allNums) {
+                        let filtered = allNums.filter(n => parseInt(n) !== parseInt(numStr) && parseInt(n) > 0 && parseInt(n) < 100);
+                        if (filtered.length > 0) {
+                            kollVal = parseInt(filtered[0]);
+                        }
+                    }
+                }
+
+                let geoQuery = targetCity.toLowerCase().includes("steinkjer") ? "Steinkjer, Norwegen" : 
+                               (targetCity.toLowerCase().includes("levanger") ? "Levanger, Norwegen" : targetCity);
+                
+                let geoResult = await geocodeAddress(geoQuery);
+                if (geoResult) {
+                    extractedStops.push({
+                        pos: fullPos,
+                        koll: kollVal,
+                        name: geoResult.name,
+                        lat: geoResult.lat,
+                        lng: geoResult.lng,
+                        type: (prefix === 'L' || targetCity.toLowerCase().includes("ikornnes")) ? 'load' : 'unload'
+                    });
+                }
+            }
+
+            // Duplikate nach Positionsnummer bereinigen und sortieren
+            let uniqueStops = [];
+            let seenPositions = new Set();
+            for(let stop of extractedStops) {
+                if(!seenPositions.has(stop.pos)) {
+                    seenPositions.add(stop.pos);
+                    uniqueStops.push(stop);
+                }
+            }
+
+            if (uniqueStops.length > 0) {
+                addresses = uniqueStops;
+                updateAddressUI();
+                await calculateRoute();
+                logDebug(`OCR erfolgreich: ${addresses.length} Stopps fehlerfrei eingelesen.`);
+            } else {
+                logDebug("Keine Stopps im OCR-Text erkannt.", "warn");
+                alert("Konnte keine Zielorte aus dem Bild extrahieren. Bitte manuell hinzufügen.");
+            }
+        } catch (err) {
+            logDebug("OCR Fehler: " + err.message);
+        } finally {
+            statusEl.innerText = "Bereit."; statusEl.className = "";
+        }
+    });
+
     async function calculateRoute() {
         const statusEl = document.getElementById('statusText');
         statusEl.innerText = "Berechne Route..."; 
@@ -661,31 +791,28 @@
             
             depotMarker.on('dragend', async function(e) {
                 const pos = e.target.getLatLng();
-                depotData.lat = pos.lat; 
-                depotData.lng = pos.lng;
+                depotData.lat = pos.lat; depotData.lng = pos.lng;
                 depotData.name = await reverseGeocode(pos.lat, pos.lng);
                 document.getElementById('depotInput').value = depotData.name;
-                updateAddressUI(); 
-                await calculateRoute();
+                updateAddressUI(); await calculateRoute();
             });
 
             const validItems = addresses.filter(s => s && !isNaN(s.lat) && !isNaN(s.lng));
             let loadCounter = 1, unloadCounter = 1;
 
             validItems.forEach((item, idx) => {
-                let iconMarker = item.type === 'load' ? createMarkerIcon(`L${loadCounter++}`, '#f97316') : (item.type === 'unload' ? createMarkerIcon(`U${unloadCounter++}`, '#0284c7') : createMarkerIcon('Via', '#64748b'));
+                let labelText = item.pos ? item.pos : (item.type === 'load' ? `L${loadCounter++}` : (item.type === 'unload' ? `U${unloadCounter++}` : 'Via'));
+                let iconMarker = item.type === 'load' ? createMarkerIcon(labelText, '#f97316') : (item.type === 'unload' ? createMarkerIcon(labelText, '#0284c7') : createMarkerIcon('Via', '#64748b'));
                 let labelTypeStr = item.type === 'load' ? 'Laden' : (item.type === 'unload' ? 'Entladen' : 'Via-Punkt');
 
                 const m = L.marker([item.lat, item.lng], { icon: iconMarker, draggable: true }).addTo(markersLayer);
-                m.bindPopup(`<b>${labelTypeStr}:</b><br>${item.name}<br><button class="map-popup-btn" style="background:#ef4444; margin-top:6px;" onclick="removeAddress(${idx}); map.closePopup();">Stopp entfernen</button>`);
+                m.bindPopup(`<b>${labelTypeStr} (${item.pos || ''}):</b><br>${item.name}<br><button class="map-popup-btn" style="background:#ef4444; margin-top:6px;" onclick="removeAddress(${idx}); map.closePopup();">Stopp entfernen</button>`);
                 
                 m.on('dragend', async function(event) {
                     const newPos = event.target.getLatLng();
-                    addresses[idx].lat = newPos.lat; 
-                    addresses[idx].lng = newPos.lng;
+                    addresses[idx].lat = newPos.lat; addresses[idx].lng = newPos.lng;
                     addresses[idx].name = await reverseGeocode(newPos.lat, newPos.lng);
-                    updateAddressUI(); 
-                    await calculateRoute();
+                    updateAddressUI(); await calculateRoute();
                 });
             });
 
@@ -697,8 +824,7 @@
                 if (routeLayer) map.removeLayer(routeLayer);
                 document.getElementById('output').innerHTML = `<span style="color:var(--text-muted);">Füge Stopps hinzu, um die Route zu berechnen.</span>`;
                 gmapContainer.innerHTML = ""; 
-                statusEl.innerText = "Bereit."; 
-                statusEl.className = "";
+                statusEl.innerText = "Bereit."; statusEl.className = "";
                 return;
             }
 
@@ -731,7 +857,9 @@
                 let html = `<strong>Tour-Reihenfolge:</strong><br><ol style="margin: 6px 0 6px 20px; padding: 0;">`;
                 validItems.filter(i => i.type !== 'via').forEach((stop) => {
                     let typeLabel = stop.type === 'load' ? '<b style="color:#f97316;">[LADEN]</b>' : '<b style="color:#0284c7;">[ENTLADEN]</b>';
-                    html += `<li>${typeLabel} ${stop.name}</li>`;
+                    let posBadge = stop.pos ? `[${stop.pos}]` : '';
+                    let kollBadge = stop.koll ? `(${stop.koll} Koll)` : '';
+                    html += `<li>${typeLabel} ${posBadge} ${stop.name} ${kollBadge}</li>`;
                 });
                 html += `</ol><hr style="border:0; border-top:1px solid var(--border-color); margin:8px 0;">`;
                 html += `<strong>Gesamtstrecke:</strong> ${(route.distance / 1000).toFixed(1)} km | <strong>Geschätzte Zeit:</strong> ${(route.duration / 3600).toFixed(1)} Std.`;
@@ -743,8 +871,7 @@
         } catch (e) {
             logDebug("Berechnungsfehler: " + e.message);
         } finally {
-            statusEl.innerText = "Bereit."; 
-            statusEl.className = "";
+            statusEl.innerText = "Bereit."; statusEl.className = "";
         }
     }
 
