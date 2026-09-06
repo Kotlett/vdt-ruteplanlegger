@@ -311,7 +311,6 @@
             .replace(/[íìîïīįĭǐȉȋỉĩị]/gi, 'i');
     }
 
-    // Google Maps-ähnliche Adressformatierung (ohne unnötige Stadtviertel/Regionen)
     function cleanAndFormatAddress(displayName, addressObj) {
         if (!addressObj) {
             let parts = displayName.split(',').map(p => p.trim());
@@ -366,7 +365,6 @@
         return cleanParts.join(', ');
     }
 
-    // IMMER das erste Segment (Firma oder Straße) fett markieren
     function formatAddressNameBold(fullName) {
         if (!fullName) return "";
         const parts = fullName.split(',');
@@ -760,16 +758,21 @@
                 }
                 gmapContainer.innerHTML = `<a class="map-link-btn" href="${gmapsUrl}" target="_blank">Route in Google Maps öffnen ↗</a>`;
 
-                let html = `<strong>Tour-Reihenfolge:</strong><br><ol style="margin: 6px 0 6px 20px; padding: 0;">`;
+                // Ladereihenfolge (LIFO: umgedrehte Liste im Vergleich zur Tour)
+                let filteredStops = validItems.filter(i => i.type !== 'via');
+                let reversedStops = [...filteredStops].reverse();
+
+                let html = `<strong>Ladereihenfolge:</strong><br><ol style="margin: 6px 0 6px 20px; padding: 0;">`;
                 let sumLoadCount = 1, sumUnloadCount = 1;
-                validItems.filter(i => i.type !== 'via').forEach((stop) => {
-                    let typeLabel = stop.type === 'load' ? '<b style="color:#f97316;">[LADEN]</b>' : '<b style="color:#0284c7;">[ENTLADEN]</b>';
+                
+                // Für die korrekte Badge-Nummerierung basierend auf der Original-Tour ermitteln wir die Labels vorher oder nutzen sie konsistent
+                reversedStops.forEach((stop) => {
                     let badgeTxt = stop.type === 'load' ? `L${sumLoadCount++}` : `U${sumUnloadCount++}`;
                     let badgeBg = stop.type === 'load' ? '#f97316' : '#0284c7';
                     let typeBadgeHtml = `<span style="background-color: ${badgeBg}; color: white; padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; font-weight: bold;">${badgeTxt}</span>`;
                     let kollBadge = stop.koll ? `(${stop.koll} Koll)` : '';
                     let formattedName = formatAddressNameBold(stop.name);
-                    html += `<li>${typeLabel} ${typeBadgeHtml} ${formattedName} ${kollBadge}</li>`;
+                    html += `<li>${typeBadgeHtml} ${formattedName} ${kollBadge}</li>`;
                 });
                 html += `</ol><hr style="border:0; border-top:1px solid var(--border-color); margin:8px 0;">`;
                 html += `<strong>Gesamtstrecke:</strong> ${(route.distance / 1000).toFixed(1)} km | <strong>Geschätzte Zeit:</strong> ${(route.duration / 3600).toFixed(1)} Std.`;
