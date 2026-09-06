@@ -1,10 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VD Transport AS - Truck Route Planner</title>
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f4f9; color: #333; }
@@ -23,7 +22,6 @@
         }
 
         #sidebar { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: relative; z-index: 10; }
-        
         #right-column { display: flex; flex-direction: column; gap: 20px; }
         
         #map-container { background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); height: 600px; display: flex; flex-direction: column; }
@@ -49,7 +47,7 @@
             cursor: pointer;
             width: auto;
             margin-top: 0;
-            display: none; /* Hidden by default */
+            display: none;
         }
         .btn-clear-all:hover { background: #c82333; }
 
@@ -63,11 +61,60 @@
         }
         .btn-gps:hover { background: #5a6268; }
 
-        input[type="text"], select { width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; background: #fff; }
+        input[type="text"] { width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; background: #fff; }
         
-        .search-row { display: flex; gap: 6px; align-items: center; }
+        .search-row { display: flex; gap: 6px; align-items: stretch; }
         .search-row input[type="text"] { flex-grow: 1; }
-        .search-row select { width: 125px; font-weight: bold; padding: 9px 4px; font-size: 13px; }
+
+        /* Custom Dropdown ohne Textbeschriftung, kompaktes Icon-only Feld */
+        .custom-select-wrapper {
+            position: relative;
+            width: 55px;
+            user-select: none;
+        }
+        .custom-select-trigger {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            padding: 6px;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            height: 100%;
+            box-sizing: border-box;
+        }
+        .custom-select-trigger::after {
+            content: "▼";
+            font-size: 8px;
+            color: #666;
+        }
+        .custom-options {
+            position: absolute;
+            top: 105%;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            display: none;
+            z-index: 9999;
+        }
+        .custom-options.open {
+            display: block;
+        }
+        .custom-option {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        .custom-option:last-child { border-bottom: none; }
+        .custom-option:hover { background: #f1f1f1; }
 
         .suggestions-box {
             position: absolute; top: 100%; left: 0; right: 0;
@@ -109,7 +156,7 @@
         .address-item.dragging { opacity: 0.4; background: #e2e8f0; }
         
         .address-content { display: flex; align-items: center; gap: 8px; flex-grow: 1; overflow: hidden; }
-        .address-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .address-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; width: 100%; }
         .drag-handle { font-weight: bold; color: #666; cursor: grab; flex-shrink: 0; }
         .btn-del { background: #dc3545; width: auto; padding: 3px 8px; font-size: 11px; margin: 0; flex-shrink: 0; }
         .btn-del:hover { background: #c82333; }
@@ -120,16 +167,12 @@
         
         .map-popup-btn { background: #007BFF; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 3px; }
         .map-popup-btn:hover { background: #0056b3; }
-
         .map-popup-btn-load { background: #ff9800; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 3px; }
         .map-popup-btn-load:hover { background: #e68a00; }
-
         .map-popup-btn-unload { background: #007BFF; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 3px; }
         .map-popup-btn-unload:hover { background: #0056b3; }
-
         .map-popup-btn-via { background: #6c757d; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 3px; }
         .map-popup-btn-via:hover { background: #5a6268; }
-
         .map-popup-btn-depot { background: #f8f9fa; color: #6c757d; border: 1px solid #ced4da; padding: 4px 8px; border-radius: 4px; font-weight: normal; cursor: pointer; font-size: 11px; width: 100%; margin-top: 3px; }
         .map-popup-btn-depot:hover { background: #e9ecef; color: #495057; }
         
@@ -144,14 +187,14 @@
         <p style="font-size: 13px; color: #666; margin-bottom: 10px;">Truck Route Planner & Draggable Markers</p>
 
         <div class="info-banner">
-            🖱️ <b>Tip:</b> Drag any marker on the map to update route instantly! Right-click map for quick options.
+            Tip: Drag any marker on the map to update route instantly. Right-click map for quick options.
         </div>
 
         <div class="input-group">
             <label>Departure (Depot / Start)</label>
             <div class="departure-wrapper">
                 <input type="text" id="depotInput" value="Sørestrandvegen 39, 6220 Straumgjerde" oninput="handleDepotInput(this)">
-                <button class="btn-gps" onclick="setDepartureToCurrentGPS()" title="Use current GPS location">📍</button>
+                <button class="btn-gps" onclick="setDepartureToCurrentGPS()" title="Use current GPS location">GPS</button>
             </div>
             <div id="depotSuggestions" class="suggestions-box"></div>
         </div>
@@ -160,11 +203,25 @@
             <label>Address Search & Stop Type</label>
             <div class="search-row">
                 <input type="text" id="newAddressInput" placeholder="e.g. Ålesund, Bergen..." oninput="handleNewAddressInput(this)" onkeydown="handleKeyDown(event)">
-                <select id="stopTypeSelect">
-                    <option value="load">🟠 Loading</option>
-                    <option value="unload">🔵 Unloading</option>
-                    <option value="via">⚪ Via</option>
-                </select>
+                
+                <div class="custom-select-wrapper" id="stopTypeCustomSelect">
+                    <div class="custom-select-trigger" onclick="toggleCustomDropdown()">
+                        <span id="selectedIconLabel" style="display:flex; align-items:center; justify-content:center;">
+                            <svg width="22" height="22" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#007BFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </span>
+                    </div>
+                    <div class="custom-options" id="customDropdownOptions">
+                        <div class="custom-option" onclick="selectStopType('load')">
+                            <svg width="22" height="22" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#FF6B00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </div>
+                        <div class="custom-option" onclick="selectStopType('unload')">
+                            <svg width="22" height="22" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#007BFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </div>
+                        <div class="custom-option" onclick="selectStopType('via')">
+                            <svg width="22" height="22" viewBox="0 0 15 15" fill="none"><path d="M7.5 1C5.01 1 3 3.01 3 5.5C3 8.75 7.5 14 7.5 14C7.5 14 12 8.75 12 5.5C12 3.01 9.99 1 7.5 1Z" fill="#6c757d"/><circle cx="7.5" cy="5.5" r="2" fill="white"/></svg>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div id="newAddressSuggestions" class="suggestions-box"></div>
         </div>
@@ -172,7 +229,7 @@
 
         <div class="list-header-wrapper">
             <label style="margin-bottom:0;">Tour Stops & Via-Points (Auto-sorted)</label>
-            <button id="clearAllBtn" class="btn-clear-all" onclick="removeAllAddresses()" title="Delete all stops">🗑️ Clear All (X)</button>
+            <button id="clearAllBtn" class="btn-clear-all" onclick="removeAllAddresses()" title="Delete all stops">Clear All</button>
         </div>
 
         <div id="addressListContainer">
@@ -198,13 +255,41 @@
         </div>
 
         <div id="debugBox" class="debug-box">
-            [SYSTEM] Truck Routing System initialized successfully with custom color schema (Orange/Blue/Grey).
+            [SYSTEM] Truck Routing System initialized with text-free oversized vector icons & pin via-points.
         </div>
     </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+    let currentStopType = 'unload';
+
+    function toggleCustomDropdown() {
+        const options = document.getElementById('customDropdownOptions');
+        options.classList.toggle('open');
+    }
+
+    function selectStopType(type) {
+        currentStopType = type;
+        const triggerLabel = document.getElementById('selectedIconLabel');
+        let svgHtml = '';
+        if (type === 'load') {
+            svgHtml = `<svg width="22" height="22" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#FF6B00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        } else if (type === 'unload') {
+            svgHtml = `<svg width="22" height="22" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#007BFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        } else {
+            svgHtml = `<svg width="22" height="22" viewBox="0 0 15 15" fill="none"><path d="M7.5 1C5.01 1 3 3.01 3 5.5C3 8.75 7.5 14 7.5 14C7.5 14 12 8.75 12 5.5C12 3.01 9.99 1 7.5 1Z" fill="#6c757d"/><circle cx="7.5" cy="5.5" r="2" fill="white"/></svg>`;
+        }
+        triggerLabel.innerHTML = svgHtml;
+        document.getElementById('customDropdownOptions').classList.remove('open');
+    }
+
+    window.addEventListener('click', function(e) {
+        if (!document.getElementById('stopTypeCustomSelect').contains(e.target)) {
+            document.getElementById('customDropdownOptions').classList.remove('open');
+        }
+    });
+
     function logDebug(message) {
         const box = document.getElementById('debugBox');
         if (!box) return;
@@ -224,6 +309,19 @@
             .replace(/[íìîïīįĭǐȉȋỉĩị]/gi, 'i');
     }
 
+    function getCustomStandaloneIconHtml(type) {
+        let svgContent = "";
+        if (type === 'load') {
+            svgContent = `<svg width="18" height="18" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#FF6B00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        } else if (type === 'unload') {
+            svgContent = `<svg width="18" height="18" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#007BFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        } else {
+            svgContent = `<svg width="18" height="18" viewBox="0 0 15 15" fill="none"><path d="M7.5 1C5.01 1 3 3.01 3 5.5C3 8.75 7.5 14 7.5 14C7.5 14 12 8.75 12 5.5C12 3.01 9.99 1 7.5 1Z" fill="#6c757d"/><circle cx="7.5" cy="5.5" r="2" fill="white"/></svg>`;
+        }
+
+        return `<span style="display: inline-flex; align-items: center; justify-content: center; background: #fff; border: 1px solid #ccc; padding: 2px; border-radius: 4px; flex-shrink: 0;">${svgContent}</span>`;
+    }
+
     let addresses = []; 
     let depotData = { name: "Sørestrandvegen 39, 6220 Straumgjerde", lat: 62.3342430, lng: 6.5856790 };
     let debounceTimer = null;
@@ -234,15 +332,8 @@
     let markersLayer = L.layerGroup();
     let previewMarkerLayer = L.layerGroup();
 
-    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap'
-    });
-
-    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 19,
-        attribution: 'Tiles © Esri'
-    });
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' });
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles © Esri' });
 
     const map = L.map('map', {
         center: [62.3342430, 6.5856790],
@@ -250,17 +341,12 @@
         layers: [osmLayer, markersLayer, previewMarkerLayer]
     });
 
-    const baseMaps = {
-        "Standard (OSM)": osmLayer,
-        "Satellite (Esri)": satelliteLayer
-    };
-    L.control.layers(baseMaps, {}, { position: 'bottomleft' }).addTo(map);
+    L.control.layers({ "Standard (OSM)": osmLayer, "Satellite (Esri)": satelliteLayer }, {}, { position: 'bottomleft' }).addTo(map);
 
     async function reverseGeocode(lat, lng, defaultPrefix = "") {
         try {
             const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
             const data = await response.json();
-            
             let cleanName = "";
             if (data && data.address) {
                 const road = data.address.road || data.address.pedestrian || data.address.suburb || "";
@@ -277,146 +363,91 @@
         }
     }
 
-    // RIGHT-CLICK: Context Menu for Depot, Load, Unload, or Via
     map.on('contextmenu', async function(e) {
         const lat = e.latlng.lat;
         const lng = e.latlng.lng;
-        const popup = L.popup()
-            .setLatLng(e.latlng)
-            .setContent(`<b>Finding location...</b>`)
-            .openOn(map);
+        const popup = L.popup().setLatLng(e.latlng).setContent(`<b>Finding location...</b>`).openOn(map);
 
         try {
             const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
             const data = await response.json();
-            
-            let cleanName = "";
-            if (data && data.address) {
-                const road = data.address.road || data.address.pedestrian || data.address.suburb || "";
-                const city = data.address.city || data.address.town || data.address.village || data.address.municipality || "";
-                if (road && city) cleanName = `${road}, ${city}`;
-                else if (road) cleanName = road;
-            }
-            if (!cleanName || cleanName.length < 3) {
-                cleanName = data && data.display_name ? data.display_name.split(',')[0] : `Point (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
-            }
+            let cleanName = data && data.address ? (data.address.road || data.address.city || data.display_name.split(',')[0]) : `Point`;
 
             window.addLoadStopFromMap = async function() {
                 map.closePopup();
-                addresses.push({ name: data && data.display_name ? data.display_name : cleanName, lat: lat, lng: lng, type: 'load' });
-                sortRouteAutomatically();
-                updateAddressUI();
-                await calculateRoute();
+                addresses.push({ name: data.display_name || cleanName, lat: lat, lng: lng, type: 'load' });
+                sortRouteAutomatically(); updateAddressUI(); await calculateRoute();
             };
-
             window.addUnloadStopFromMap = async function() {
                 map.closePopup();
-                addresses.push({ name: data && data.display_name ? data.display_name : cleanName, lat: lat, lng: lng, type: 'unload' });
-                sortRouteAutomatically();
-                updateAddressUI();
-                await calculateRoute();
+                addresses.push({ name: data.display_name || cleanName, lat: lat, lng: lng, type: 'unload' });
+                sortRouteAutomatically(); updateAddressUI(); await calculateRoute();
             };
-
             window.addViaFromMap = async function() {
                 map.closePopup();
                 addresses.push({ name: `Via: ${cleanName}`, lat: lat, lng: lng, type: 'via' });
-                sortRouteAutomatically();
-                updateAddressUI();
-                await calculateRoute();
+                sortRouteAutomatically(); updateAddressUI(); await calculateRoute();
             };
-
             window.setDepotFromMap = async function() {
                 map.closePopup();
-                depotData = { name: data && data.display_name ? data.display_name : cleanName, lat: lat, lng: lng };
+                depotData = { name: data.display_name || cleanName, lat: lat, lng: lng };
                 document.getElementById('depotInput').value = depotData.name;
-                sortRouteAutomatically();
-                await calculateRoute();
+                sortRouteAutomatically(); await calculateRoute();
             };
 
             popup.setContent(`
                 <div style="font-size: 13px; max-width: 250px;">
                     <span style="font-size: 11px; color: #444; display:block; margin-bottom:5px;"><b>Location:</b><br>${cleanName}</span>
-                    <button class="map-popup-btn-depot" onclick="setDepotFromMap()">🏠 Set as Departure</button>
-                    <button class="map-popup-btn-load" onclick="addLoadStopFromMap()">🟠 Add Loading</button>
-                    <button class="map-popup-btn-unload" onclick="addUnloadStopFromMap()">🔵 Add Unloading</button>
-                    <button class="map-popup-btn-via" onclick="addViaFromMap()">⚪ Add Via</button>
+                    <button class="map-popup-btn-depot" onclick="setDepotFromMap()">Set as Departure</button>
+                    <button class="map-popup-btn-load" onclick="addLoadStopFromMap()">Add Loading</button>
+                    <button class="map-popup-btn-unload" onclick="addUnloadStopFromMap()">Add Unloading</button>
+                    <button class="map-popup-btn-via" onclick="addViaFromMap()">Add Via</button>
                 </div>
             `);
-        } catch (err) {
-            logDebug(`Reverse geocoding error: ${err.message}`);
-        }
+        } catch (err) { logDebug(`Error: ${err.message}`); }
     });
 
-    // LEFT-CLICK: Automatically adds a via-point
     map.on('click', async function(e) {
         if (document.querySelector('.leaflet-popup')) return;
-
-        const lat = e.latlng.lat;
-        const lng = e.latlng.lng;
-        
+        const lat = e.latlng.lat, lng = e.latlng.lng;
         const statusEl = document.getElementById('statusText');
-        statusEl.innerText = "Adding via-point...";
-        statusEl.className = "pulsing";
-
+        statusEl.innerText = "Adding via-point..."; statusEl.className = "pulsing";
         try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=17&addressdetails=1`);
-            const data = await response.json();
-            
-            let streetName = "";
-            if (data && data.address) {
-                const road = data.address.road || data.address.pedestrian || data.address.suburb || "";
-                const city = data.address.city || data.address.town || data.address.village || "";
-                if (road && city) streetName = `${road}, ${city}`;
-                else if (road) streetName = road;
-            }
-            if (!streetName) {
-                streetName = `Route Point (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
-            }
-
-            addresses.push({ name: `Via: ${streetName}`, lat: lat, lng: lng, type: 'via' });
-            sortRouteAutomatically();
-            updateAddressUI();
-            await calculateRoute();
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=17`);
+            const data = await res.json();
+            const name = data.display_name ? `Via: ${data.display_name.split(',')[0]}` : `Via: (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+            addresses.push({ name: name, lat: lat, lng: lng, type: 'via' });
+            sortRouteAutomatically(); updateAddressUI(); await calculateRoute();
         } catch (err) {
             addresses.push({ name: `Via: (${lat.toFixed(3)}, ${lng.toFixed(3)})`, lat: lat, lng: lng, type: 'via' });
-            sortRouteAutomatically();
-            updateAddressUI();
-            await calculateRoute();
+            sortRouteAutomatically(); updateAddressUI(); await calculateRoute();
         }
     });
 
     function createMarkerIcon(text, bgColor) {
         return L.divIcon({
             className: 'custom-numbered-marker',
-            html: `<div style="background-color: ${bgColor}; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">${text}</div>`,
-            iconSize: [28, 28],
-            iconAnchor: [14, 14],
-            popupAnchor: [0, -15]
+            html: `<div style="background-color: ${bgColor}; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">${text}</div>`,
+            iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -16]
         });
     }
 
     async function setDepartureToCurrentGPS() {
         if (!navigator.geolocation) return;
         const statusEl = document.getElementById('statusText');
-        statusEl.innerText = "Getting GPS location...";
-        statusEl.className = "pulsing";
-        navigator.geolocation.getCurrentPosition(async (position) => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
+        statusEl.innerText = "Getting GPS location..."; statusEl.className = "pulsing";
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+            const lat = pos.coords.latitude, lng = pos.coords.longitude;
             try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-                const data = await response.json();
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                const data = await res.json();
                 depotData = { name: data.display_name || `GPS: ${lat}, ${lng}`, lat: lat, lng: lng };
                 document.getElementById('depotInput').value = depotData.name;
-                statusEl.className = "";
-                sortRouteAutomatically();
-                await calculateRoute();
+                statusEl.className = ""; sortRouteAutomatically(); await calculateRoute();
             } catch (err) {
                 depotData = { name: `GPS: ${lat}, ${lng}`, lat: lat, lng: lng };
                 document.getElementById('depotInput').value = depotData.name;
-                statusEl.className = "";
-                sortRouteAutomatically();
-                await calculateRoute();
+                statusEl.className = ""; sortRouteAutomatically(); await calculateRoute();
             }
         });
     }
@@ -427,21 +458,14 @@
         const box = document.getElementById('depotSuggestions');
         if (query.length < 3) { box.innerHTML = ""; return; }
         debounceTimer = setTimeout(() => fetchSuggestions(query, box, inputElement, async (item) => {
-            depotData = item;
-            sortRouteAutomatically();
-            await calculateRoute();
+            depotData = item; sortRouteAutomatically(); await calculateRoute();
         }), 300);
-        depotDebounceTimer = setTimeout(async () => {
-            let res = await geocodeAddress(inputElement.value);
-            if(res) { depotData = res; sortRouteAutomatically(); await calculateRoute(); }
-        }, 800);
     }
 
     function handleNewAddressInput(inputElement) {
         clearTimeout(debounceTimer);
         if (selectedNewAddress && inputElement.value !== selectedNewAddress.name) {
-            selectedNewAddress = null;
-            previewMarkerLayer.clearLayers();
+            selectedNewAddress = null; previewMarkerLayer.clearLayers();
         }
         const query = inputElement.value.trim();
         const box = document.getElementById('newAddressSuggestions');
@@ -458,9 +482,7 @@
 
     async function fetchSuggestions(query, boxElement, inputElement, onSelectCallback) {
         const statusEl = document.getElementById('statusText');
-        statusEl.innerText = "Searching suggestions...";
-        statusEl.className = "pulsing";
-
+        statusEl.innerText = "Searching suggestions..."; statusEl.className = "pulsing";
         const normalizedQuery = normalizeScandinavianInput(query);
         const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=no,se&q=${encodeURIComponent(normalizedQuery)}&limit=5`;
         try {
@@ -474,21 +496,15 @@
                     div.innerText = item.display_name;
                     div.onclick = async () => {
                         inputElement.value = item.display_name;
-                        const typeVal = document.getElementById('stopTypeSelect').value;
-                        const obj = { name: item.display_name, lat: parseFloat(item.lat), lng: parseFloat(item.lon), type: typeVal };
+                        const obj = { name: item.display_name, lat: parseFloat(item.lat), lng: parseFloat(item.lon), type: currentStopType };
                         boxElement.innerHTML = "";
                         if (onSelectCallback) await onSelectCallback(obj);
                     };
                     boxElement.appendChild(div);
                 });
             }
-            statusEl.innerText = "Ready.";
-            statusEl.className = "";
-        } catch (e) { 
-            logDebug(`Autocomplete error: ${e.message}`); 
-            statusEl.innerText = "Ready.";
-            statusEl.className = "";
-        }
+            statusEl.innerText = "Ready."; statusEl.className = "";
+        } catch (e) { statusEl.innerText = "Ready."; statusEl.className = ""; }
     }
 
     document.addEventListener('click', (e) => {
@@ -498,51 +514,40 @@
     });
 
     async function geocodeAddress(address) {
-        const normalizedAddress = normalizeScandinavianInput(address);
-        const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=no,se&q=${encodeURIComponent(normalizedAddress)}&limit=1`;
+        const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=no,se&q=${encodeURIComponent(normalizeScandinavianInput(address))}&limit=1`;
         try {
             const response = await fetch(url);
             const data = await response.json();
-            if (data && data.length > 0) {
-                return { name: data[0].display_name, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lng || data[0].lon) };
-            }
-        } catch (e) { logDebug(`Geocoding error: ${e.message}`); }
+            if (data && data.length > 0) return { name: data[0].display_name, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lng || data[0].lon) };
+        } catch (e) {}
         return null;
     }
 
     async function addAddress() {
         const input = document.getElementById('newAddressInput');
         const val = input.value.trim();
-        const typeVal = document.getElementById('stopTypeSelect').value;
         if (val === "") return;
-        
         let obj = selectedNewAddress ? selectedNewAddress : await geocodeAddress(val);
         if (obj) {
-            obj.type = typeVal;
+            obj.type = currentStopType;
             addresses.push(obj);
             input.value = "";
             selectedNewAddress = null;
             previewMarkerLayer.clearLayers();
             document.getElementById('newAddressSuggestions').innerHTML = "";
-            sortRouteAutomatically();
-            updateAddressUI();
-            await calculateRoute();
+            sortRouteAutomatically(); updateAddressUI(); await calculateRoute();
         } else { alert("Location not found."); }
     }
 
     async function removeAddress(tourIndex) {
         addresses.splice(tourIndex, 1);
-        updateAddressUI();
-        await calculateRoute();
+        updateAddressUI(); await calculateRoute();
     }
 
     async function removeAllAddresses() {
         if (addresses.length <= 1) return;
-        if (confirm("Are you sure you want to delete all stops and via-points?")) {
-            addresses = [];
-            updateAddressUI();
-            await calculateRoute();
-            logDebug("All stops cleared by user.");
+        if (confirm("Delete all stops?")) {
+            addresses = []; updateAddressUI(); await calculateRoute();
         }
     }
 
@@ -554,8 +559,7 @@
         if (draggedIndex === null || draggedIndex === targetIndex) return;
         const item = addresses.splice(draggedIndex, 1)[0];
         addresses.splice(targetIndex, 0, item);
-        updateAddressUI();
-        await calculateRoute();
+        updateAddressUI(); await calculateRoute();
     }
 
     function updateAddressUI() {
@@ -563,44 +567,22 @@
         const clearAllBtn = document.getElementById('clearAllBtn');
         container.innerHTML = "";
 
-        // Toggle Clear All button visibility based on whether there is MORE THAN 1 element
         if (addresses.length === 0) {
-            container.innerHTML = `<div class="empty-hint" id="emptyHint">No stops added yet. Right-click map to add stops.</div>`;
+            container.innerHTML = `<div class="empty-hint">No stops added yet. Right-click map to add stops.</div>`;
             if (clearAllBtn) clearAllBtn.style.display = 'none';
             return;
-        } else if (addresses.length > 1) {
-            if (clearAllBtn) clearAllBtn.style.display = 'inline-block';
         } else {
-            if (clearAllBtn) clearAllBtn.style.display = 'none';
+            if (clearAllBtn) clearAllBtn.style.display = 'inline-block';
         }
         
-        let loadCounter = 1;
-        let unloadCounter = 1;
-
         addresses.forEach((addr, tourIndex) => {
-            let labelText = "";
-            let badgeColor = "#007BFF";
-
-            if (addr.type === 'load') {
-                badgeColor = "#ff9800"; // Warn-Orange
-                labelText = `Loading #${loadCounter++}`;
-            } else if (addr.type === 'unload') {
-                badgeColor = "#007BFF"; // Blue
-                labelText = `Unloading #${unloadCounter++}`;
-            } else {
-                badgeColor = "#6c757d"; // Grey
-                labelText = `Via`;
-            }
+            let badgeHtml = getCustomStandaloneIconHtml(addr.type);
 
             container.innerHTML += `
-                <div class="address-item" draggable="true" 
-                     ondragstart="dragStart(event, ${tourIndex})" 
-                     ondragend="dragEnd(event)" 
-                     ondragover="dragOver(event)" 
-                     ondrop="drop(event, ${tourIndex})">
+                <div class="address-item" draggable="true" ondragstart="dragStart(event, ${tourIndex})" ondragend="dragEnd(event)" ondragover="dragOver(event)" ondrop="drop(event, ${tourIndex})">
                     <div class="address-content">
                         <span class="drag-handle">☰</span>
-                        <span class="address-text"><b style="color: ${badgeColor};">[${labelText}]</b> ${addr.name}</span>
+                        <span class="address-text">${badgeHtml} <span style="overflow:hidden; text-overflow:ellipsis;" title="${addr.name}">${addr.name}</span></span>
                     </div>
                     <button class="btn-del" onclick="removeAddress(${tourIndex})">X</button>
                 </div>`;
@@ -609,104 +591,60 @@
 
     function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
         const R = 6371;
-        const dLat = (lat2 - lat1) * (Math.PI/180);
-        const dLon = (lon2 - lon1) * (Math.PI/180);
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * (Math.PI/180)) * Math.cos(lat2 * (Math.PI/180)) * Math.sin(dLon/2) * Math.sin(dLon/2);
+        const dLat = (lat2 - lat1) * (Math.PI/180), dLon = (lon2 - lon1) * (Math.PI/180);
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1*(Math.PI/180)) * Math.cos(lat2*(Math.PI/180)) * Math.sin(dLon/2) * Math.sin(dLon/2);
         return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
     }
 
     async function sortRouteAutomatically() {
         if (addresses.length === 0) return;
-        let pool = [...addresses];
-        let sorted = [];
-        let current = depotData;
-
+        let pool = [...addresses], sorted = [], current = depotData;
         while (pool.length > 0) {
-            let nearestIdx = 0;
-            let minDist = Infinity;
+            let nearestIdx = 0, minDist = Infinity;
             pool.forEach((pt, idx) => {
                 const dist = getDistanceFromLatLonInKm(current.lat, current.lng, pt.lat, pt.lng);
                 if (dist < minDist) { minDist = dist; nearestIdx = idx; }
             });
-            let nextPoint = pool.splice(nearestIdx, 1)[0];
-            sorted.push(nextPoint);
-            current = nextPoint;
+            sorted.push(pool.splice(nearestIdx, 1)[0]);
+            current = sorted[sorted.length - 1];
         }
         addresses = sorted;
     }
 
     async function optimizeAndSortRoute() {
-        await sortRouteAutomatically();
-        updateAddressUI();
-        await calculateRoute();
+        await sortRouteAutomatically(); updateAddressUI(); await calculateRoute();
     }
 
     async function calculateRoute() {
         const statusEl = document.getElementById('statusText');
-        statusEl.innerText = "Calculating route...";
-        statusEl.className = "pulsing";
+        statusEl.innerText = "Calculating route..."; statusEl.className = "pulsing";
+        markersLayer.clearLayers(); previewMarkerLayer.clearLayers();
 
-        markersLayer.clearLayers();
-        previewMarkerLayer.clearLayers();
-
-        // 1. DEPOT MARKER
-        const depotMarker = L.marker([depotData.lat, depotData.lng], { 
-            icon: createMarkerIcon('VD', '#002855'),
-            draggable: true 
-        }).addTo(markersLayer);
-
-        depotMarker.bindPopup(`<b>Departure (Depot):</b><br>${depotData.name}<br><span style="font-size:11px; color:#666;">(Drag marker to move depot)</span>`);
-        
+        const depotMarker = L.marker([depotData.lat, depotData.lng], { icon: createMarkerIcon('Depot', '#002855'), draggable: true }).addTo(markersLayer);
+        depotMarker.bindPopup(`<b>Departure (Depot):</b><br>${depotData.name}`);
         depotMarker.on('dragend', async function(e) {
             const pos = e.target.getLatLng();
-            depotData.lat = pos.lat;
-            depotData.lng = pos.lng;
+            depotData.lat = pos.lat; depotData.lng = pos.lng;
             depotData.name = await reverseGeocode(pos.lat, pos.lng, "Depot");
             document.getElementById('depotInput').value = depotData.name;
-            await sortRouteAutomatically();
-            updateAddressUI();
-            await calculateRoute();
+            sortRouteAutomatically(); updateAddressUI(); await calculateRoute();
         });
 
-        // 2. STOP & VIA MARKERS
         const validItems = addresses.filter(s => s && !isNaN(s.lat) && !isNaN(s.lng));
-        
-        let loadCounter = 1;
-        let unloadCounter = 1;
+        let loadCounter = 1, unloadCounter = 1;
 
         validItems.forEach((item, idx) => {
-            const itemRealIdx = idx;
-            let iconMarker;
-            let labelTypeStr = "";
+            let iconMarker = item.type === 'load' ? createMarkerIcon(`L${loadCounter++}`, '#ff9800') : (item.type === 'unload' ? createMarkerIcon(`U${unloadCounter++}`, '#007BFF') : createMarkerIcon('Via', '#6c757d'));
+            let labelTypeStr = item.type === 'load' ? 'Loading' : (item.type === 'unload' ? 'Unloading' : 'Via');
 
-            if (item.type === 'load') {
-                iconMarker = createMarkerIcon(`L${loadCounter++}`, '#ff9800'); // Warn-Orange
-                labelTypeStr = 'Loading';
-            } else if (item.type === 'unload') {
-                iconMarker = createMarkerIcon(`U${unloadCounter++}`, '#007BFF'); // Blue
-                labelTypeStr = 'Unloading';
-            } else {
-                iconMarker = createMarkerIcon('Via', '#6c757d'); // Grey
-                labelTypeStr = 'Via';
-            }
-
-            const m = L.marker([item.lat, item.lng], { 
-                icon: iconMarker,
-                draggable: true 
-            }).addTo(markersLayer);
-
-            m.bindPopup(`<b>${labelTypeStr}:</b><br>${item.name}<br><button class="map-popup-btn" style="background:#dc3545; margin-top:5px;" onclick="removeAddress(${itemRealIdx}); map.closePopup();">Remove</button>`);
-
+            const m = L.marker([item.lat, item.lng], { icon: iconMarker, draggable: true }).addTo(markersLayer);
+            m.bindPopup(`<b>${labelTypeStr}:</b><br>${item.name}<br><button class="map-popup-btn" style="background:#dc3545; margin-top:5px;" onclick="removeAddress(${idx}); map.closePopup();">Remove</button>`);
             m.on('dragend', async function(event) {
                 const newPos = event.target.getLatLng();
-                addresses[itemRealIdx].lat = newPos.lat;
-                addresses[itemRealIdx].lng = newPos.lng;
-                
+                addresses[idx].lat = newPos.lat; addresses[idx].lng = newPos.lng;
                 const prefix = item.type === 'via' ? "Via" : (item.type === 'load' ? "Loading" : "Unloading");
-                addresses[itemRealIdx].name = await reverseGeocode(newPos.lat, newPos.lng, prefix);
-
-                updateAddressUI();
-                await calculateRoute();
+                addresses[idx].name = await reverseGeocode(newPos.lat, newPos.lng, prefix);
+                updateAddressUI(); await calculateRoute();
             });
         });
 
@@ -717,27 +655,20 @@
             map.setView([depotData.lat, depotData.lng], 11);
             if (routeLayer) map.removeLayer(routeLayer);
             document.getElementById('output').innerHTML = `<span style="color:#666;">Add addresses to calculate route.</span>`;
-            gmapContainer.innerHTML = "";
-            statusEl.innerText = "Ready.";
-            statusEl.className = "";
+            gmapContainer.innerHTML = ""; statusEl.innerText = "Ready."; statusEl.className = "";
             return;
         }
 
         const allWaypoints = [depotData, ...validItems];
         const coordsString = allWaypoints.map(wp => `${wp.lng},${wp.lat}`).join(';');
-        const radiusesArr = allWaypoints.map((wp, idx) => idx === 0 ? '50' : (wp.type === 'via' ? '300' : '50'));
-        const radiusesStr = radiusesArr.join(';');
+        const radiusesStr = allWaypoints.map((wp, idx) => idx === 0 ? '50' : (wp.type === 'via' ? '300' : '50')).join(';');
 
         const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson&radiuses=${radiusesStr}&continue_straight=true`;
-        
         try {
             const response = await fetch(url);
             const data = await response.json();
             if (data.code === "Ok" && data.routes && data.routes.length > 0) {
                 const route = data.routes[0];
-                const distanceKm = (route.distance / 1000).toFixed(1);
-                const durationHours = (route.duration / 3600).toFixed(1);
-
                 if (routeLayer) map.removeLayer(routeLayer);
                 routeLayer = L.geoJSON(route.geometry, { style: { color: '#002855', weight: 6, opacity: 0.85 } }).addTo(map);
 
@@ -747,52 +678,30 @@
                 }
 
                 let gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${depotData.lat},${depotData.lng}&travelmode=driving`;
-                if (actualStops.length === 1) {
-                    gmapsUrl += `&destination=${actualStops[0].lat},${actualStops[0].lng}`;
-                } else if (actualStops.length > 1) {
+                if (actualStops.length === 1) gmapsUrl += `&destination=${actualStops[0].lat},${actualStops[0].lng}`;
+                else if (actualStops.length > 1) {
                     gmapsUrl += `&destination=${actualStops[actualStops.length - 1].lat},${actualStops[actualStops.length - 1].lng}`;
-                    const intermediate = actualStops.slice(0, -1).map(s => `${s.lat},${s.lng}`).join('|');
-                    gmapsUrl += `&waypoints=${intermediate}`;
+                    gmapsUrl += `&waypoints=${actualStops.slice(0, -1).map(s => `${s.lat},${s.lng}`).join('|')}`;
                 }
-
                 gmapContainer.innerHTML = `<a class="map-link-btn" href="${gmapsUrl}" target="_blank">Open Route in Google Maps ↗</a>`;
 
-                let html = `<strong>🚚 Tour Stops Sequence:</strong><br><ol style="margin: 5px 0 10px 20px; padding: 0;">`;
+                let html = `<strong>Tour Stops Sequence:</strong><br><ol style="margin: 5px 0 10px 20px; padding: 0;">`;
                 validItems.filter(i => i.type !== 'via').forEach((stop) => {
-                    const typeLabel = stop.type === 'load' ? '<b style="color:#ff9800;">[LOADING]</b>' : '<b style="color:#007BFF;">[UNLOADING]</b>';
+                    let typeLabel = stop.type === 'load' ? '<b style="color:#ff9800;">[LOADING]</b>' : '<b style="color:#007BFF;">[UNLOADING]</b>';
                     html += `<li>${typeLabel} ${stop.name}</li>`;
                 });
-                html += `</ol>`;
-
-                const viaCount = addresses.filter(a => a.type === 'via').length;
-                if (viaCount > 0) {
-                    html += `<div style="font-size: 11px; color: #666; margin-top: 5px;">📌 Includes ${viaCount} via-point(s).</div>`;
-                }
-
-                html += `<hr style="border:0; border-top:1px solid #ccc; margin:10px 0;">`;
-                html += `🚛 <b>Total Distance:</b> ${distanceKm} km | ⏱️ <b>Est. Time:</b> ${durationHours} hrs`;
+                html += `</ol><hr style="border:0; border-top:1px solid #ccc; margin:10px 0;">`;
+                html += `<strong>Total Distance:</strong> ${(route.distance / 1000).toFixed(1)} km | <strong>Est. Time:</strong> ${(route.duration / 3600).toFixed(1)} hrs`;
 
                 document.getElementById('output').innerHTML = html;
-                statusEl.innerText = "Ready. Drag markers or right-click map.";
-                statusEl.className = "";
+                statusEl.innerText = "Ready."; statusEl.className = "";
             }
-        } catch (e) { 
-            logDebug(`Network error: ${e.message}`); 
-            statusEl.innerText = "Error calculating route.";
-            statusEl.className = "";
-        }
+        } catch (e) { statusEl.innerText = "Ready."; statusEl.className = ""; }
     }
 
     window.addEventListener('DOMContentLoaded', async () => {
-        logDebug("DOM loaded, initializing map view...");
-        const depotText = document.getElementById('depotInput').value.trim();
-        const depot = await geocodeAddress(depotText);
-        if (depot) {
-            depotData = depot;
-            map.setView([depot.lat, depot.lng], 11);
-            await calculateRoute();
-            logDebug("Default depot set successfully.");
-        }
+        const depot = await geocodeAddress(document.getElementById('depotInput').value.trim());
+        if (depot) { depotData = depot; map.setView([depot.lat, depot.lng], 11); await calculateRoute(); }
     });
 </script>
 </body>
