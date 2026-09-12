@@ -400,7 +400,7 @@
         </div>
 
         <div id="debugBox" class="debug-box">
-            [SYSTEM] Routenplanungssystem voll einsatzbereit.
+            [SYSTEM] Routenplanungssystem einsatzbereit.
         </div>
     </div>
 </div>
@@ -1029,9 +1029,9 @@
                         : `<span style="color:var(--text-muted); font-weight:normal; margin-right:4px; cursor:pointer;" onclick="toggleStopLoadedStatus(${addrIndex})" title="Als verladen markieren">○</span>`;
 
                     let kollBadge = `
-                        <span style="display:inline-flex; align-items:center; gap:3px; color:#ef4444; font-weight:bold; margin-left:6px;">
+                        <span class="kolli-click-area" onclick="makeKolliEditable(event, ${addrIndex})" style="display:inline-flex; align-items:center; gap:3px; color:#ef4444; font-weight:bold; cursor:pointer; padding:2px 4px; border-radius:4px;" title="Klicken zum Ändern">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                            ${stop.koll || 1}
+                            <span>${stop.koll || 1}</span>
                         </span>`;
 
                     let formattedName = formatAddressNameBold(stop.name);
