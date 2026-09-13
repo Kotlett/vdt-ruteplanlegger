@@ -1,0 +1,38 @@
+{
+  "companies": [
+    {
+      "id": "vartdal_straumgjerde",
+      "name": "Vartdal Transport AS",
+      "address": "Sørestrandvegen 39, 6220 Straumgjerde, NO",
+      "location": {
+        "lat": 62.334243,
+        "lng": 6.585679
+      },
+      "opening_hours": {
+        "mo_fr": "07:00 - 16:00",
+        "sa": "Geschlossen",
+        "so": "Geschlossen"
+      },
+      "phone": "+47 70 00 00 00",
+      "loading_type": "Heckbeladung / BDF / Seitenrampe",
+      "notes": "Anmeldung im Hauptbüro vor Einfahrt auf das Gelände. Safety First: Warnweste & Sicherheitsschuhe Pflicht."
+    },
+    {
+      "id": "more_trafo_sykkylven",
+      "name": "Møre Trafo AS",
+      "address": "Langneset 1, 6230 Sykkylven, NO",
+      "location": {
+        "lat": 62.388100,
+        "lng": 6.578200
+      },
+      "opening_hours": {
+        "mo_fr": "07:30 - 15:00",
+        "sa": "Geschlossen",
+        "so": "Geschlossen"
+      },
+      "phone": "+47 70 24 51 00",
+      "loading_type": "Kranbeladung / Gardine (links/rechts)",
+      "notes": "Tor 2 nutzen. Entladung schwerer Komponenten nur mit Haltekran vor Ort. Vorankündigung 30 Min. vor Ankunft."
+    }
+  ]
+}
