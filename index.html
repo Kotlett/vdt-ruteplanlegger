@@ -1037,19 +1037,20 @@
                     let formattedName = formatAddressNameBold(stop.name);
                     html += `<li style="margin-bottom: 4px;">${loadedCheck}${typeBadgeHtml} ${kollBadge} ${formattedName}</li>`;
                 });
-                
-                const loadedCount = nonViaStops.filter(s => s.loaded).length;
-                const totalStopsCount = nonViaStops.length;
-                const progressPct = totalStopsCount > 0 ? Math.round((loadedCount / totalStopsCount) * 100) : 0;
+
+                // Berechnung basierend auf der Gesamtanzahl der Kollis
+                const totalKollis = nonViaStops.reduce((sum, s) => sum + (s.koll || 1), 0);
+                const loadedKollis = nonViaStops.filter(s => s.loaded).reduce((sum, s) => sum + (s.koll || 1), 0);
+                const progressPct = totalKollis > 0 ? Math.round((loadedKollis / totalKollis) * 100) : 0;
 
                 html += `</ol><hr style="border:0; border-top:1px solid var(--border-color); margin:8px 0;">`;
                 html += `
                     <div style="margin-top: 6px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; font-weight: 600; color: var(--text-color); margin-bottom: 6px;">
                             <span>Beladestatus:</span>
-                            <span style="color: var(--text-muted);">${loadedCount} / ${totalStopsCount} verladen (${progressPct}%)</span>
+                            <span style="color: var(--text-muted);">${loadedKollis} / ${totalKollis} Kollis verladen (${progressPct}%)</span>
                         </div>
-                        <div class="progress-bar-container" title="Beladestatus: ${progressPct}% verladen" style="margin-bottom: 0;">
+                        <div class="progress-bar-container" title="Beladestatus: ${loadedKollis} / ${totalKollis} Kollis verladen (${progressPct}%)" style="margin-bottom: 0;">
                             <div class="progress-bar-fill" style="width: ${progressPct}%;"></div>
                         </div>
                     </div>
@@ -1115,17 +1116,18 @@
         const container = document.getElementById('modalAssistantContent');
         const totalStops = assistantStops.length;
         const currentStop = assistantStops[assistantIndex];
-        const loadedCount = assistantStops.filter(s => s.loaded).length;
-        const progressPercent = Math.round((loadedCount / totalStops) * 100);
 
-        // Gesamtanzahl aller Kollis im LKW berechnen
+        // Gesamt-Kollis und verladene Kollis berechnen
         const totalKollis = assistantStops.reduce((sum, s) => sum + (s.koll || 1), 0);
+        const loadedKollis = assistantStops.filter(s => s.loaded).reduce((sum, s) => sum + (s.koll || 1), 0);
+        const progressPercent = totalKollis > 0 ? Math.round((loadedKollis / totalKollis) * 100) : 0;
+
         const currentStopKollis = currentStop.koll || 1;
-        const currentStopPct = Math.round((currentStopKollis / totalKollis) * 100);
+        const currentStopPct = totalKollis > 0 ? Math.round((currentStopKollis / totalKollis) * 100) : 0;
         const currentStopColor = getStationColor(assistantIndex);
 
         let html = `
-            <div class="progress-bar-container" title="Gesamtfortschritt: ${progressPercent}% verladen">
+            <div class="progress-bar-container" title="Gesamtfortschritt: ${loadedKollis} / ${totalKollis} Kollis verladen (${progressPercent}%)">
                 <div class="progress-bar-fill" style="width: ${progressPercent}%;"></div>
             </div>
             
@@ -1143,7 +1145,7 @@
         // Generiere Balkensegmente: SATT wenn GELADEN, BLASS wenn UNGELADEN
         assistantStops.forEach((stop, idx) => {
             const stopKoll = stop.koll || 1;
-            const pct = (stopKoll / totalKollis) * 100;
+            const pct = totalKollis > 0 ? (stopKoll / totalKollis) * 100 : 0;
             const isLoaded = stop.loaded;
             const isCurrent = idx === assistantIndex;
             const color = getStationColor(idx);
