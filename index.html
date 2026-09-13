@@ -184,10 +184,10 @@
         }
         .gmaps-icon-link {
             display: inline-flex; align-items: center; justify-content: center;
-            background: #ea4335; color: white; border-radius: 6px; padding: 6px;
+            background: #4285f4; color: white; border-radius: 6px; padding: 6px;
             text-decoration: none; transition: background 0.2s; flex-shrink: 0;
         }
-        .gmaps-icon-link:hover { background: #dc2626; }
+        .gmaps-icon-link:hover { background: #2563eb; }
 
         .status-box { margin-top: 14px; background: #f1f5f9; padding: 10px 12px; border-radius: 6px; font-size: 0.85rem; border: 1px solid var(--border-color); }
         
@@ -425,7 +425,7 @@
         <div class="modal-footer">
             <button class="btn-reset-modal" onclick="resetAllLoadingStatus()" title="Beladung aller Stopps zurücksetzen">↺ Reset</button>
             <button class="btn-nav btn-prev" id="btnAssistantPrev" onclick="prevAssistantStep()">◄ Zurück</button>
-            <button class="btn-nav btn-next" id="btnAssistantNext" onclick="toggleCurrentStepLoaded()">Geladen ✔</button>
+            <button class="btn-nav btn-next" id="btnAssistantNext" onclick="toggleCurrentStepLoaded()">Aktion...</button>
         </div>
     </div>
 </div>
@@ -500,10 +500,10 @@
     /* GESAMTEN BELADEZUSTAND ZURÜCKSETZEN */
     function resetAllLoadingStatus() {
         if (!addresses.some(a => a.loaded)) {
-            alert("Es sind aktuell keine Stopps als beladen markiert.");
+            alert("Es sind aktuell keine Stopps als bearbeitet markiert.");
             return;
         }
-        if (confirm("Möchtest du den Beladezustand ALLER Stopps zurücksetzen (wieder als 'ungeladen' markieren)?")) {
+        if (confirm("Möchtest du den Status ALLER Stopps zurücksetzen?")) {
             addresses.forEach(a => a.loaded = false);
             updateAddressUI();
             calculateRoute();
@@ -647,7 +647,7 @@
         if (type === 'load') {
             svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f97316" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         } else if (type === 'unload') {
-            svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         } else {
             svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M7.5 1C5.01 1 3 3.01 3 5.5C3 8.75 7.5 14 7.5 14C7.5 14 12 8.75 12 5.5C12 3.01 9.99 1 7.5 1Z" fill="#64748b"/><circle cx="7.5" cy="5.5" r="2" fill="white"/></svg>`;
         }
@@ -679,7 +679,7 @@
                     Laden
                 </button>
                 <button class="map-popup-btn" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: #fff; color: #1e293b; border: 1px solid var(--border-color); margin-bottom: 4px;" onclick="addStopFromMap(${lat}, ${lng}, 'unload')">
-                    <svg width="14" height="14" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <svg width="14" height="14" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     Entladen
                 </button>
                 <button class="map-popup-btn" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: #fff; color: #1e293b; border: 1px solid var(--border-color);" onclick="addStopFromMap(${lat}, ${lng}, 'via')">
@@ -906,7 +906,8 @@
             let badgeHtml = getInteractiveIconHtml(addr.type, tourIndex);
             let labelText = addr.type === 'load' ? `L${loadCounter++}` : (addr.type === 'unload' ? `U${unloadCounter++}` : 'VIA');
             let labelBgColor = addr.type === 'load' ? '#f97316' : (addr.type === 'unload' ? '#0284c7' : '#64748b');
-            let colorBadge = `<span style="background-color: ${labelBgColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; flex-shrink: 0;" title="Typ: ${addr.type}">${labelText}</span>`;
+            
+            let colorBadge = `<span style="background-color: ${labelBgColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; flex-shrink: 0; cursor: pointer;" title="Typ: ${addr.type} (Klicken zum Ändern)" onclick="cycleStopType(${tourIndex})">${labelText}</span>`;
 
             let kollInfo = `
                 <span class="kolli-click-area" onclick="makeKolliEditable(event, ${tourIndex})" style="display:inline-flex; align-items:center; gap:3px; color:#ef4444; font-weight:bold; cursor:pointer; padding:2px 4px; border-radius:4px;" title="Klicken zum Ändern">
@@ -1111,9 +1112,10 @@
                     let typeBadgeHtml = `<span style="background-color: ${badgeBg}; color: white; padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; font-weight: bold;">${badgeTxt}</span>`;
                     
                     let addrIndex = addresses.indexOf(stop);
+                    let actionTooltipText = stop.type === 'load' ? (stop.loaded ? 'Als NICHT entladen markieren' : 'Als entladen markieren') : (stop.loaded ? 'Als ungeladen markieren' : 'Als beladen markieren');
                     let loadedCheck = stop.loaded 
-                        ? `<span style="color:var(--success-color); font-weight:bold; margin-right:4px; cursor:pointer;" onclick="toggleStopLoadedStatus(${addrIndex})" title="Als ungeladen markieren">✔</span>` 
-                        : `<span style="color:var(--text-muted); font-weight:normal; margin-right:4px; cursor:pointer;" onclick="toggleStopLoadedStatus(${addrIndex})" title="Als verladen markieren">○</span>`;
+                        ? `<span style="color:var(--success-color); font-weight:bold; margin-right:4px; cursor:pointer;" onclick="toggleStopLoadedStatus(${addrIndex})" title="${actionTooltipText}">✔</span>` 
+                        : `<span style="color:var(--text-muted); font-weight:normal; margin-right:4px; cursor:pointer;" onclick="toggleStopLoadedStatus(${addrIndex})" title="${actionTooltipText}">○</span>`;
 
                     let kollBadge = `
                         <span class="kolli-click-area" onclick="makeKolliEditable(event, ${addrIndex})" style="display:inline-flex; align-items:center; gap:3px; color:#ef4444; font-weight:bold; cursor:pointer; padding:2px 4px; border-radius:4px;" title="Klicken zum Ändern">
@@ -1122,7 +1124,19 @@
                         </span>`;
 
                     let formattedName = formatAddressNameBold(stop.name);
-                    html += `<li style="margin-bottom: 4px;">${loadedCheck}${typeBadgeHtml} ${kollBadge} ${formattedName}</li>`;
+
+                    /* SPATIAL MATCH CHECK UND ANZEIGE IN DER UNTEREN LISTE */
+                    const matchedStation = getMatchedStationData(stop.lat, stop.lng, 200);
+                    let stationInfoHtml = "";
+                    if (matchedStation) {
+                        stationInfoHtml = `
+                            <div class="station-matched-info" style="margin-top: 3px; margin-bottom: 4px; margin-left: 0;" title="Station aus Datenbank erkannt">
+                                <span>${matchedStation.info}</span>
+                            </div>
+                        `;
+                    }
+
+                    html += `<li style="margin-bottom: 6px;">${loadedCheck}${typeBadgeHtml} ${kollBadge} ${formattedName}${stationInfoHtml}</li>`;
                 });
 
                 const totalKollis = nonViaStops.reduce((sum, s) => sum + (s.koll || 1), 0);
@@ -1133,10 +1147,10 @@
                 html += `
                     <div style="margin-top: 6px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; font-weight: 600; color: var(--text-color); margin-bottom: 6px;">
-                            <span>Beladestatus:</span>
-                            <span style="color: var(--text-muted);">${loadedKollis} / ${totalKollis} Kollis verladen (${progressPct}%)</span>
+                            <span>Fortschritt:</span>
+                            <span style="color: var(--text-muted);">${loadedKollis} / ${totalKollis} Kollis abgearbeitet (${progressPct}%)</span>
                         </div>
-                        <div class="progress-bar-container" title="Beladestatus: ${loadedKollis} / ${totalKollis} Kollis verladen (${progressPct}%)" style="margin-bottom: 0;">
+                        <div class="progress-bar-container" title="Fortschritt: ${loadedKollis} / ${totalKollis} Kollis abgearbeitet (${progressPct}%)" style="margin-bottom: 0;">
                             <div class="progress-bar-fill" style="width: ${progressPct}%;"></div>
                         </div>
                     </div>
@@ -1199,6 +1213,7 @@
         const container = document.getElementById('modalAssistantContent');
         const totalStops = assistantStops.length;
         const currentStop = assistantStops[assistantIndex];
+        const isLoadStop = currentStop.type === 'load';
 
         const totalKollis = assistantStops.reduce((sum, s) => sum + (s.koll || 1), 0);
         const loadedKollis = assistantStops.filter(s => s.loaded).reduce((sum, s) => sum + (s.koll || 1), 0);
@@ -1220,7 +1235,7 @@
         }
 
         let html = `
-            <div class="progress-bar-container" title="Gesamtfortschritt: ${loadedKollis} / ${totalKollis} Kollis verladen (${progressPercent}%)">
+            <div class="progress-bar-container" title="Gesamtfortschritt: ${loadedKollis} / ${totalKollis} Kollis (${progressPercent}%)">
                 <div class="progress-bar-fill" style="width: ${progressPercent}%;"></div>
             </div>
             
@@ -1246,11 +1261,15 @@
 
             let contentLabel = pct > 8 ? `#${idx + 1} ${isLoaded ? '✔' : '⏳'}` : (pct > 4 ? `#${idx + 1}` : '');
 
+            let tooltipStatusText = stop.type === 'load'
+                ? (isLoaded ? 'ENTLADEN' : 'OFFEN')
+                : (isLoaded ? 'BELADEN' : 'OFFEN');
+
             html += `
                 <div class="${statusClass}" 
                      style="width: ${pct}%; background-color: ${color};" 
                      onclick="selectAssistantStep(${idx})"
-                     title="Station ${idx + 1}: ${stop.name} (${stopKoll} Kollis - ${isLoaded ? 'VERLADEN' : 'NOCH OFFEN'})">
+                     title="Station ${idx + 1}: ${stop.name} (${stopKoll} Kollis - ${tooltipStatusText})">
                      ${contentLabel}
                 </div>
             `;
@@ -1281,7 +1300,7 @@
             </div>
 
             <div class="station-card" style="border-color: ${currentStopColor};">
-                <div class="station-step-label">Station ${assistantIndex + 1} von ${totalStops}</div>
+                <div class="station-step-label">Station ${assistantIndex + 1} von ${totalStops} (${isLoadStop ? 'Ladestopp' : 'Entladestopp'})</div>
                 <div class="station-title">${currentStop.name}</div>
                 <div class="colli-big-badge">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
@@ -1290,8 +1309,8 @@
                 ${assistantStationInfoHtml}
                 <br>
                 ${currentStop.loaded 
-                    ? `<span class="status-badge-loaded">✔ STATUS: VERLADEN</span>` 
-                    : `<span class="status-badge-unloaded">⏳ STATUS: UNGELADEN</span>`}
+                    ? `<span class="status-badge-loaded">✔ STATUS: ${isLoadStop ? 'ENTLADEN' : 'BELADEN'}</span>` 
+                    : `<span class="status-badge-unloaded">⏳ STATUS: ${isLoadStop ? 'NICHT ENTLADEN' : 'UNGELADEN'}</span>`}
             </div>
         `;
 
@@ -1305,10 +1324,10 @@
 
         if (currentStop.loaded) {
             nextBtn.style.background = '#64748b';
-            nextBtn.innerHTML = "Als UNGELADEN markieren ↺";
+            nextBtn.innerHTML = isLoadStop ? "Als NICHT ENTLADEN markieren ↺" : "Als UNGELADEN markieren ↺";
         } else {
             nextBtn.style.background = 'var(--success-color)';
-            nextBtn.innerHTML = "Als GELADEN markieren ✔";
+            nextBtn.innerHTML = isLoadStop ? "Als ENTLADEN markieren ✔" : "Als BELADEN markieren ✔";
         }
     }
 
