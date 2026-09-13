@@ -134,7 +134,7 @@
         .list-header-actions { display: flex; align-items: center; gap: 6px; }
         
         .btn-optimize-small {
-            background: var(--purple-color); color: white; border: none; padding: 5px 10px;
+            background: var(--purple-color); color: white; border: none; padding: 5px 8px;
             font-size: 0.8rem; font-weight: 600; border-radius: 4px; cursor: pointer;
         }
         .btn-optimize-small:hover { background: var(--purple-hover); }
@@ -148,16 +148,23 @@
         #addressListContainer { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
         
         .address-item { 
-            display: flex; justify-content: space-between; align-items: center; 
+            display: flex; flex-direction: column;
             background: #fff; padding: 8px 12px; border-radius: 6px; 
             border: 1px solid var(--border-color); font-size: 0.85rem; 
             user-select: none; transition: background 0.2s;
         }
         .address-item.is-loaded { border-left: 4px solid var(--success-color); }
         
+        .address-main-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
         .address-content { display: flex; align-items: center; gap: 8px; flex-grow: 1; overflow: hidden; }
         .address-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; width: 100%; }
         
+        .station-matched-info {
+            font-size: 0.75rem; color: #0369a1; background: #e0f2fe; border: 1px solid #bae6fd;
+            border-radius: 4px; padding: 3px 6px; margin-top: 4px; margin-left: 24px;
+            display: flex; align-items: center; gap: 4px;
+        }
+
         .drag-handle { color: #94a3b8; cursor: grab; font-weight: bold; flex-shrink: 0; padding: 2px 2px; }
         .drag-handle:active { cursor: grabbing; }
         
@@ -170,13 +177,18 @@
 
         .empty-hint { color: var(--text-muted); font-style: italic; font-size: 0.85rem; text-align: center; padding: 16px; }
         
-        .map-link-btn { 
-            display: block; background: #f97316; color: white; text-decoration: none; 
-            padding: 10px; border-radius: 6px; font-weight: 600; margin-top: 14px; 
-            font-size: 0.9rem; text-align: center; transition: background 0.2s;
+        .route-summary-card {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-top: 14px; font-size: 0.85rem; background: #fff; padding: 8px 12px;
+            border-radius: 6px; border: 1px solid var(--border-color);
         }
-        .map-link-btn:hover { background: #ea580c; }
-        
+        .gmaps-icon-link {
+            display: inline-flex; align-items: center; justify-content: center;
+            background: #ea4335; color: white; border-radius: 6px; padding: 6px;
+            text-decoration: none; transition: background 0.2s; flex-shrink: 0;
+        }
+        .gmaps-icon-link:hover { background: #dc2626; }
+
         .status-box { margin-top: 14px; background: #f1f5f9; padding: 10px 12px; border-radius: 6px; font-size: 0.85rem; border: 1px solid var(--border-color); }
         
         @keyframes pulse-animation { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
@@ -217,7 +229,6 @@
         .progress-bar-container { background: #e2e8f0; border-radius: 8px; height: 8px; width: 100%; overflow: hidden; margin-bottom: 16px; }
         .progress-bar-fill { background: var(--success-color); height: 100%; width: 0%; transition: width 0.3s ease; }
 
-        /* VISUALISIERTE BELADEANZEIGE (LKW-LADEFLÄCHE) */
         .truck-visualizer-card {
             background: #0f172a; color: #f8fafc; border-radius: 12px;
             padding: 14px; margin-bottom: 16px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
@@ -232,7 +243,6 @@
             overflow: hidden; border: 1px solid #334155; position: relative; width: 100%;
         }
         
-        /* CARGO SEGMENT: UNGELADEN (BLASS) vs. BELADEN (SATT) */
         .cargo-segment {
             height: 100%; display: flex; align-items: center; justify-content: center;
             font-size: 0.75rem; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.8);
@@ -241,19 +251,16 @@
         }
         .cargo-segment:last-child { border-right: none; }
         
-        /* BLASS: Noch nicht geladen */
         .cargo-segment.unloaded {
             opacity: 0.28;
             filter: saturate(30%) brightness(0.7);
             background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(255,255,255,0.05) 5px, rgba(255,255,255,0.05) 10px);
         }
-        /* SATT: Bereits geladen */
         .cargo-segment.loaded {
             opacity: 1;
             filter: saturate(140%) contrast(105%);
             box-shadow: inset 0 0 0 1px rgba(255,255,255,0.4);
         }
-        /* AKTIVER FOKUS (Aktueller Schritt) */
         .cargo-segment.active-target {
             box-shadow: inset 0 0 0 2px #ffffff, 0 0 12px rgba(255,255,255,0.9);
             z-index: 5; animation: cargo-pulse 1.4s infinite ease-in-out;
@@ -328,7 +335,7 @@
         <div class="input-group">
             <label>Start / Depot</label>
             <div class="departure-wrapper">
-                <input type="text" id="depotInput" value="Sørestrandvegen 39, 6220 Straumgjerde" oninput="handleDepotInput(this)">
+                <input type="text" id="depotInput" value="VD Transport AS, Sørestrandvegen, 6220 Straumgjerde" oninput="handleDepotInput(this)">
                 <button class="btn-gps" onclick="setDepartureToCurrentGPS()" title="Aktuelle GPS-Position verwenden">GPS</button>
             </div>
             <div id="depotSuggestions" class="suggestions-box"></div>
@@ -425,9 +432,25 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+    // DYNAMISCHE STATIONS-DATENBANK (WIRD VIA FETCH GEFLADEN)
+    let stationDatabase = [];
+
+    async function loadStationDatabase() {
+        try {
+            const response = await fetch('https://kotlett.github.io/vdt-ruteplanlegger/stations.json');
+            if (!response.ok) {
+                throw new Error(`HTTP-Fehler! Status: ${response.status}`);
+            }
+            stationDatabase = await response.json();
+            logDebug(`[DB] ${stationDatabase.length} Stationen aus stations.json geladen.`);
+        } catch (error) {
+            logDebug(`[DB-FEHLER] Konnte stations.json nicht laden: ${error.message}`);
+        }
+    }
+
     let currentStopType = 'unload';
     let addresses = []; 
-    let depotData = { name: "Sørestrandvegen 39, 6220 Straumgjerde, NO", lat: 62.3342430, lng: 6.5856790 };
+    let depotData = { name: "VD Transport AS, Sørestrandvegen, 6220 Straumgjerde", lat: 62.3342430, lng: 6.5856790 };
     let debounceTimer = null;
     let depotDebounceTimer = null;
     let selectedNewAddress = null;
@@ -448,6 +471,17 @@
 
     function getStationColor(idx) {
         return stationColors[idx % stationColors.length];
+    }
+
+    /* SPATIAL MATCHING: PRÜFT RADIUS VON 200 METER GEGEN DIE GELADENE JSON DATENBANK */
+    function getMatchedStationData(lat, lng, radiusMeters = 200) {
+        for (const st of stationDatabase) {
+            const distKm = getDistanceFromLatLonInKm(lat, lng, st.lat, st.lng);
+            if (distKm * 1000 <= radiusMeters) {
+                return st;
+            }
+        }
+        return null;
     }
 
     /* SICHERHEITSABFRAGE BEI BEREITS BEGONNENER BELADUNG */
@@ -522,6 +556,13 @@
         const timeStr = new Date().toLocaleTimeString();
         box.innerHTML += `<br>[${timeStr}] ${message}`;
         box.scrollTop = box.scrollHeight;
+    }
+
+    /* EXPLICITE GEO-DATEN-AUSGABE FÜR MANUELLE DATENBANK-BEFÜLLUNG */
+    function logGeoData(name, lat, lng) {
+        const latNum = typeof lat === 'number' ? lat : parseFloat(lat);
+        const lngNum = typeof lng === 'number' ? lng : parseFloat(lng);
+        logDebug(`<span style="color:#f59e0b; font-weight:bold;">📍 [GEO]</span> "${name}" | <strong>Lat:</strong> ${latNum.toFixed(7)}, <strong>Lng:</strong> ${lngNum.toFixed(7)}`);
     }
 
     function normalizeScandinavianInput(str) {
@@ -606,7 +647,7 @@
         if (type === 'load') {
             svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f97316" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         } else if (type === 'unload') {
-            svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         } else {
             svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M7.5 1C5.01 1 3 3.01 3 5.5C3 8.75 7.5 14 7.5 14C7.5 14 12 8.75 12 5.5C12 3.01 9.99 1 7.5 1Z" fill="#64748b"/><circle cx="7.5" cy="5.5" r="2" fill="white"/></svg>`;
         }
@@ -638,7 +679,7 @@
                     Laden
                 </button>
                 <button class="map-popup-btn" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: #fff; color: #1e293b; border: 1px solid var(--border-color); margin-bottom: 4px;" onclick="addStopFromMap(${lat}, ${lng}, 'unload')">
-                    <svg width="14" height="14" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <svg width="14" height="14" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     Entladen
                 </button>
                 <button class="map-popup-btn" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: #fff; color: #1e293b; border: 1px solid var(--border-color);" onclick="addStopFromMap(${lat}, ${lng}, 'via')">
@@ -658,10 +699,13 @@
             const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
             const data = await response.json();
             let resolvedName = (data && data.display_name) ? cleanAndFormatAddress(data.display_name, data.address) : `Punkt (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+            logGeoData(resolvedName, lat, lng);
             addresses.push({ name: resolvedName, lat: lat, lng: lng, type: type, koll: 1, loaded: false });
             updateAddressUI(); await calculateRoute();
         } catch (err) {
-            addresses.push({ name: `Standort (${lat.toFixed(3)}, ${lng.toFixed(3)})`, lat: lat, lng: lng, type: type, koll: 1, loaded: false });
+            let fallbackName = `Standort (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+            logGeoData(fallbackName, lat, lng);
+            addresses.push({ name: fallbackName, lat: lat, lng: lng, type: type, koll: 1, loaded: false });
             updateAddressUI(); await calculateRoute();
         } finally { statusEl.innerText = "Bereit."; statusEl.className = ""; }
     }
@@ -683,6 +727,7 @@
             const resolvedName = await reverseGeocode(lat, lng);
             depotData = { name: resolvedName || `GPS: ${lat}, ${lng}`, lat: lat, lng: lng };
             document.getElementById('depotInput').value = depotData.name;
+            logGeoData(depotData.name, lat, lng);
             statusEl.className = ""; await calculateRoute();
         });
     }
@@ -693,7 +738,9 @@
         const box = document.getElementById('depotSuggestions');
         if (query.length < 3) { box.innerHTML = ""; return; }
         depotDebounceTimer = setTimeout(() => fetchSuggestions(query, box, inputElement, async (item) => {
-            depotData = item; await calculateRoute();
+            depotData = item;
+            logGeoData(item.name, item.lat, item.lng);
+            await calculateRoute();
         }), 300);
     }
 
@@ -726,7 +773,10 @@
                     div.className = 'suggestion-item'; div.innerText = cleanDisp;
                     div.onclick = async () => {
                         inputElement.value = cleanDisp;
-                        const obj = { name: cleanDisp, lat: parseFloat(item.lat), lng: parseFloat(item.lon || item.lng), type: currentStopType };
+                        const latVal = parseFloat(item.lat);
+                        const lngVal = parseFloat(item.lon || item.lng);
+                        logGeoData(cleanDisp, latVal, lngVal);
+                        const obj = { name: cleanDisp, lat: latVal, lng: lngVal, type: currentStopType };
                         boxElement.innerHTML = "";
                         if (onSelectCallback) await onSelectCallback(obj);
                     };
@@ -749,7 +799,10 @@
             const data = await response.json();
             if (data && data.length > 0) {
                 let cleanDisp = cleanAndFormatAddress(data[0].display_name, data[0].address);
-                return { name: cleanDisp, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lng || data[0].lon) };
+                const latVal = parseFloat(data[0].lat);
+                const lngVal = parseFloat(data[0].lng || data[0].lon);
+                logGeoData(cleanDisp, latVal, lngVal);
+                return { name: cleanDisp, lat: latVal, lng: lngVal };
             }
         } catch (e) {}
         return null;
@@ -766,6 +819,7 @@
             obj.type = currentStopType;
             obj.koll = parseInt(kollInput.value) || 1;
             obj.loaded = false;
+            logGeoData(obj.name, obj.lat, obj.lng);
             addresses.push(obj);
             input.value = ""; kollInput.value = "1";
             selectedNewAddress = null; previewMarkerLayer.clearLayers();
@@ -780,7 +834,6 @@
         updateAddressUI(); await calculateRoute();
     }
 
-    /* CLEAR ALL: Nur 1 Sicherheitsabfrage (kein Beladungs-Dialog) */
     async function removeAllAddresses() {
         if (addresses.length === 0) return;
         if (confirm("Wirklich alle Stopps löschen?")) {
@@ -864,14 +917,28 @@
             let formattedName = formatAddressNameBold(addr.name);
             let itemClass = addr.loaded ? "address-item is-loaded" : "address-item";
 
+            // SPATIAL MATCH CHECK (Radius 200m)
+            const matchedStation = getMatchedStationData(addr.lat, addr.lng, 200);
+            let stationInfoHtml = "";
+            if (matchedStation) {
+                stationInfoHtml = `
+                    <div class="station-matched-info" title="Station aus Datenbank erkannt">
+                        <span>${matchedStation.info}</span>
+                    </div>
+                `;
+            }
+
             container.innerHTML += `
                 <div class="${itemClass}" ondragover="dragOver(event)" ondrop="drop(event, ${tourIndex})">
-                    <div class="address-content">
-                        <span class="drag-handle" draggable="true" ondragstart="dragStart(event, ${tourIndex})" ondragend="dragEnd(event)" title="Zum Sortieren ziehen">☰</span>
-                        ${badgeHtml}
-                        <span class="address-text">${colorBadge} ${kollInfo} <span style="overflow:hidden; text-overflow:ellipsis;" title="${addr.name}">${formattedName}</span></span>
+                    <div class="address-main-row">
+                        <div class="address-content">
+                            <span class="drag-handle" draggable="true" ondragstart="dragStart(event, ${tourIndex})" ondragend="dragEnd(event)" title="Zum Sortieren ziehen">☰</span>
+                            ${badgeHtml}
+                            <span class="address-text">${colorBadge} ${kollInfo} <span style="overflow:hidden; text-overflow:ellipsis;" title="${addr.name}">${formattedName}</span></span>
+                        </div>
+                        <button class="btn-del" onclick="removeAddress(${tourIndex})" title="Löschen">×</button>
                     </div>
-                    <button class="btn-del" onclick="removeAddress(${tourIndex})" title="Löschen">×</button>
+                    ${stationInfoHtml}
                 </div>`;
         });
     }
@@ -883,7 +950,6 @@
         return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
     }
 
-    /* AUTO-SORT OPTIMIERUNG: Keine doppelte Abfrage wenn Warnung bereits bestätigt wurde */
     function confirmAndAutoOptimize() {
         if (addresses.length <= 1) {
             alert("Mindestens 2 Stopps für eine automatische Optimierung erforderlich.");
@@ -893,7 +959,6 @@
         const hasLoadedItems = addresses.some(a => a.loaded);
         if (!checkLoadingSafety("automatischen Routenoptimierung")) return;
         
-        // Zeige die zweite Abfrage NUR, wenn der Warnhinweis nicht bereits erschienen ist
         if (hasLoadedItems || confirm("Möchtest du die Reihenfolge wirklich automatisch optimieren lassen?")) {
             autoSortRoute();
         }
@@ -921,14 +986,21 @@
         markersLayer.clearLayers(); previewMarkerLayer.clearLayers();
 
         try {
-            const depotMarker = L.marker([depotData.lat, depotData.lng], { icon: createMarkerIcon('Depot', '#0f172a'), draggable: true }).addTo(markersLayer);
-            depotMarker.bindPopup(`<b>Start (Depot):</b><br>${depotData.name}`);
+            const depotMatch = getMatchedStationData(depotData.lat, depotData.lng, 200);
+            let depotPopupText = `<b>Start:</b><br>${depotData.name}`;
+            if (depotMatch) {
+                depotPopupText += `<br><span style="color:#0369a1; font-size:0.8rem;">ℹ️ ${depotMatch.info}</span>`;
+            }
+
+            const depotMarker = L.marker([depotData.lat, depotData.lng], { icon: createMarkerIcon('Start', '#0f172a'), draggable: true }).addTo(markersLayer);
+            depotMarker.bindPopup(depotPopupText);
             
             depotMarker.on('dragend', async function(e) {
                 const pos = e.target.getLatLng();
                 depotData.lat = pos.lat; depotData.lng = pos.lng;
                 depotData.name = await reverseGeocode(pos.lat, pos.lng);
                 document.getElementById('depotInput').value = depotData.name;
+                logGeoData(depotData.name, pos.lat, pos.lng);
                 updateAddressUI(); await calculateRoute();
             });
 
@@ -940,8 +1012,16 @@
                 let iconMarker = item.type === 'load' ? createMarkerIcon(labelText, '#f97316') : (item.type === 'unload' ? createMarkerIcon(labelText, '#0284c7') : createMarkerIcon('VIA', '#64748b'));
                 let labelTypeStr = item.type === 'load' ? 'Laden' : (item.type === 'unload' ? 'Entladen' : 'Via-Punkt');
 
+                // SPATIAL MATCH CHECK FOR MARKER POPUP
+                const itemMatch = getMatchedStationData(item.lat, item.lng, 200);
+                let popupHtml = `<b>${labelTypeStr}:</b><br>${item.name}<br>Kollis: ${item.koll || 1}`;
+                if (itemMatch) {
+                    popupHtml += `<br><span style="color:#0369a1; font-size:0.8rem;">ℹ️ ${itemMatch.info}</span>`;
+                }
+                popupHtml += `<br><button class="map-popup-btn" style="background:#ef4444; margin-top:6px;" onclick="removeAddress(${idx}); map.closePopup();">Stopp entfernen</button>`;
+
                 const m = L.marker([item.lat, item.lng], { icon: iconMarker, draggable: true }).addTo(markersLayer);
-                m.bindPopup(`<b>${labelTypeStr}:</b><br>${item.name}<br>Kollis: ${item.koll || 1}<br><button class="map-popup-btn" style="background:#ef4444; margin-top:6px;" onclick="removeAddress(${idx}); map.closePopup();">Stopp entfernen</button>`);
+                m.bindPopup(popupHtml);
                 
                 m.on('dragend', async function(event) {
                     if (!checkLoadingSafety("Verschieben eines Markers")) {
@@ -952,6 +1032,7 @@
                     const newPos = event.target.getLatLng();
                     addresses[idx].lat = newPos.lat; addresses[idx].lng = newPos.lng;
                     addresses[idx].name = await reverseGeocode(newPos.lat, newPos.lng);
+                    logGeoData(addresses[idx].name, newPos.lat, newPos.lng);
                     updateAddressUI(); await calculateRoute();
                 });
             });
@@ -995,9 +1076,15 @@
                 const durationHours = (route.duration / 3600).toFixed(1);
 
                 gmapContainer.innerHTML = `
-                    <a class="map-link-btn" href="${gmapsUrl}" target="_blank">Route in Google Maps öffnen ↗</a>
-                    <div style="margin-top: 8px; font-size: 0.85rem; text-align: center; color: var(--text-color); background: #fff; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border-color);">
-                        <strong>Gesamtstrecke:</strong> ${distKm} km | <strong>Geschätzte Zeit:</strong> ${durationHours} Std.
+                    <div class="route-summary-card">
+                        <div>
+                            <strong>Gesamtstrecke:</strong> ${distKm} km | <strong>Zeit:</strong> ${durationHours} Std.
+                        </div>
+                        <a class="gmaps-icon-link" href="${gmapsUrl}" target="_blank" title="Route in Google Maps öffnen">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                            </svg>
+                        </a>
                     </div>
                 `;
 
@@ -1038,7 +1125,6 @@
                     html += `<li style="margin-bottom: 4px;">${loadedCheck}${typeBadgeHtml} ${kollBadge} ${formattedName}</li>`;
                 });
 
-                // Berechnung basierend auf der Gesamtanzahl der Kollis
                 const totalKollis = nonViaStops.reduce((sum, s) => sum + (s.koll || 1), 0);
                 const loadedKollis = nonViaStops.filter(s => s.loaded).reduce((sum, s) => sum + (s.koll || 1), 0);
                 const progressPct = totalKollis > 0 ? Math.round((loadedKollis / totalKollis) * 100) : 0;
@@ -1067,7 +1153,6 @@
         }
     }
 
-    /* BELADEASSISTENT LOGIK MIT OPTISCHER SATTHEITS-UNTERSCHEIDUNG */
     function openLoadingAssistant() {
         const validStops = addresses.filter(s => s && s.type !== 'via');
         if (validStops.length === 0) {
@@ -1075,10 +1160,8 @@
             return;
         }
 
-        // LIFO Beladereihenfolge (rückwärts)
         assistantStops = [...validStops].reverse();
         
-        // Finde den ersten noch nicht geladenen Stopp
         const firstUnloaded = assistantStops.findIndex(s => !s.loaded);
         assistantIndex = firstUnloaded !== -1 ? firstUnloaded : 0;
 
@@ -1117,7 +1200,6 @@
         const totalStops = assistantStops.length;
         const currentStop = assistantStops[assistantIndex];
 
-        // Gesamt-Kollis und verladene Kollis berechnen
         const totalKollis = assistantStops.reduce((sum, s) => sum + (s.koll || 1), 0);
         const loadedKollis = assistantStops.filter(s => s.loaded).reduce((sum, s) => sum + (s.koll || 1), 0);
         const progressPercent = totalKollis > 0 ? Math.round((loadedKollis / totalKollis) * 100) : 0;
@@ -1126,12 +1208,22 @@
         const currentStopPct = totalKollis > 0 ? Math.round((currentStopKollis / totalKollis) * 100) : 0;
         const currentStopColor = getStationColor(assistantIndex);
 
+        // SPATIAL MATCH CHECK FOR ASSISTANT MODAL
+        const matched = getMatchedStationData(currentStop.lat, currentStop.lng, 200);
+        let assistantStationInfoHtml = "";
+        if (matched) {
+            assistantStationInfoHtml = `
+                <div style="margin-top: 10px; font-size: 0.85rem; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 8px 12px; border-radius: 6px; text-align: center;">
+                    ℹ️ ${matched.info}
+                </div>
+            `;
+        }
+
         let html = `
             <div class="progress-bar-container" title="Gesamtfortschritt: ${loadedKollis} / ${totalKollis} Kollis verladen (${progressPercent}%)">
                 <div class="progress-bar-fill" style="width: ${progressPercent}%;"></div>
             </div>
             
-            <!-- VISUALISIERTER BELADEBALKEN (LKW-LADEFLÄCHE) -->
             <div class="truck-visualizer-card">
                 <div class="truck-visualizer-header">
                     <span>🚛 STIRNWAND</span>
@@ -1142,7 +1234,6 @@
                 <div class="truck-bed-bar">
         `;
 
-        // Generiere Balkensegmente: SATT wenn GELADEN, BLASS wenn UNGELADEN
         assistantStops.forEach((stop, idx) => {
             const stopKoll = stop.koll || 1;
             const pct = totalKollis > 0 ? (stopKoll / totalKollis) * 100 : 0;
@@ -1189,7 +1280,6 @@
                 </div>
             </div>
 
-            <!-- AKTUELLE STATIONS-KARTE -->
             <div class="station-card" style="border-color: ${currentStopColor};">
                 <div class="station-step-label">Station ${assistantIndex + 1} von ${totalStops}</div>
                 <div class="station-title">${currentStop.name}</div>
@@ -1197,6 +1287,7 @@
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
                     ${currentStopKollis} Kollis (${currentStopPct}% der Ladung)
                 </div>
+                ${assistantStationInfoHtml}
                 <br>
                 ${currentStop.loaded 
                     ? `<span class="status-badge-loaded">✔ STATUS: VERLADEN</span>` 
@@ -1206,7 +1297,6 @@
 
         container.innerHTML = html;
 
-        // Button-Beschriftung & Status anpassen
         const prevBtn = document.getElementById('btnAssistantPrev');
         const nextBtn = document.getElementById('btnAssistantNext');
 
@@ -1230,6 +1320,7 @@
     }
 
     window.addEventListener('DOMContentLoaded', async () => {
+        await loadStationDatabase();
         const initialVal = document.getElementById('depotInput').value.trim();
         const depot = await geocodeAddress(initialVal);
         if (depot) { 
