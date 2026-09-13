@@ -1,10 +1,10 @@
 [
   {
     "id": "ST-001",
-    "name": "Straumgjerde Depot",
+    "name": "VD Transport AS, Straumgjerde",
     "lat": 62.3342430,
     "lng": 6.5856790,
-    "info": "🏢 Hauptlager | Rampen 1-4 | Öffnungszeiten: 06:00-22:00"
+    "info": "🏢 Hauptlager"
   },
   {
     "id": "ST-002",
