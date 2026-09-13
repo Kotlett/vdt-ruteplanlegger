@@ -4,13 +4,13 @@
     "name": "VD Transport AS, Straumgjerde",
     "lat": 62.3342430,
     "lng": 6.5856790,
-    "info": "🏢 Hauptlager"
+    "info": "🏢 VD Depot"
   },
   {
     "id": "ST-002",
     "name": "Skeidar Oslo, Alnabru",
     "lat": 59.9254926,
     "lng": 10.8468869,
-    "info": "⚠️ Achtung: keine Laderampe!"
+    "info": "⚠️ Ingen Lasterampe!"
   }
 ]
