@@ -133,6 +133,14 @@
         }
         .list-header-actions { display: flex; align-items: center; gap: 6px; }
         
+        .btn-icon-action {
+            background: #ffffff; color: var(--text-color); border: 1px solid var(--border-color);
+            padding: 4px 8px; font-size: 0.85rem; font-weight: bold; border-radius: 4px;
+            cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .btn-icon-action:hover { background: #e2e8f0; border-color: #cbd5e1; }
+
         .btn-optimize-small {
             background: var(--purple-color); color: white; border: none; padding: 5px 8px;
             font-size: 0.8rem; font-weight: 600; border-radius: 4px; cursor: pointer;
@@ -344,6 +352,9 @@
         <div class="list-header-wrapper">
             <label style="margin-bottom:0;">Tour-Stopps & Via-Punkte</label>
             <div class="list-header-actions">
+                <button class="btn-icon-action" onclick="saveTourToFile()" title="Tour in .tur-Datei speichern">💾</button>
+                <button class="btn-icon-action" onclick="triggerLoadTour()" title="Tour aus .tur-Datei laden">📂</button>
+                <input type="file" id="tourFileInput" accept=".tur,.json" style="display:none;" onchange="handleTourFileSelect(event)">
                 <button class="btn-optimize-small" onclick="confirmAndAutoOptimize()" title="Route automatisch optimieren">⚡ Auto-Sort</button>
                 <button id="clearAllBtn" class="btn-clear-all" onclick="removeAllAddresses()" title="Alle Stopps löschen">Clear</button>
             </div>
@@ -471,6 +482,95 @@
 
     function getStationColor(idx) {
         return stationColors[idx % stationColors.length];
+    }
+
+    /* TOUR IN LOKALE .TUR-DATEI SPEICHERN */
+    function saveTourToFile() {
+        if (addresses.length === 0) {
+            alert("Es sind keine Stopps zum Speichern vorhanden.");
+            return;
+        }
+
+        const tourPayload = {
+            version: "1.0",
+            savedAt: new Date().toISOString(),
+            depot: depotData,
+            stops: addresses
+        };
+
+        const jsonString = JSON.stringify(tourPayload, null, 2);
+        const blob = new Blob([jsonString], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const filename = `tour_${dateStr}.tur`;
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        logDebug(`[DATEI] Tour erfolgreich als "${filename}" gespeichert (${addresses.length} Stopps).`);
+    }
+
+    /* TOUR AUS LOKALER .TUR-DATEI LADEN */
+    function triggerLoadTour() {
+        document.getElementById('tourFileInput').click();
+    }
+
+    function handleTourFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const tourPayload = JSON.parse(e.target.result);
+
+                if (!tourPayload || (!Array.isArray(tourPayload.stops) && !Array.isArray(tourPayload.addresses))) {
+                    throw new Error("Ungültiges Dateiformat. Keine Stopps gefunden.");
+                }
+
+                if (addresses.length > 0) {
+                    if (!confirm("Beim Laden der neuen Tour werden alle aktuellen Stopps überschrieben. Fortfahren?")) {
+                        event.target.value = "";
+                        return;
+                    }
+                }
+
+                // Depot wiederherstellen
+                if (tourPayload.depot && typeof tourPayload.depot.lat === 'number' && typeof tourPayload.depot.lng === 'number') {
+                    depotData = tourPayload.depot;
+                    document.getElementById('depotInput').value = depotData.name || "";
+                }
+
+                // Stopps wiederherstellen
+                const loadedStops = tourPayload.stops || tourPayload.addresses;
+                addresses = loadedStops.map(s => ({
+                    name: s.name || "Unbenannter Stopp",
+                    lat: parseFloat(s.lat),
+                    lng: parseFloat(s.lng),
+                    type: s.type || 'unload',
+                    koll: parseInt(s.koll) || 1,
+                    loaded: Boolean(s.loaded)
+                }));
+
+                updateAddressUI();
+                await calculateRoute();
+                logDebug(`[DATEI] Tour aus "${file.name}" geladen (${addresses.length} Stopps).`);
+
+            } catch (err) {
+                alert("Fehler beim Laden der .tur-Datei: " + err.message);
+                logDebug(`[DATEI-FEHLER] ${err.message}`);
+            } finally {
+                event.target.value = "";
+            }
+        };
+
+        reader.readAsText(file);
     }
 
     /* SPATIAL MATCHING: PRÜFT RADIUS VON 200 METER GEGEN DIE GELADENE JSON DATENBANK */
@@ -647,7 +747,7 @@
         if (type === 'load') {
             svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f97316" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         } else if (type === 'unload') {
-            svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 7.5L3.3 3.7M5.5 7.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         } else {
             svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M7.5 1C5.01 1 3 3.01 3 5.5C3 8.75 7.5 14 7.5 14C7.5 14 12 8.75 12 5.5C12 3.01 9.99 1 7.5 1Z" fill="#64748b"/><circle cx="7.5" cy="5.5" r="2" fill="white"/></svg>`;
         }
