@@ -97,9 +97,32 @@
         .custom-option:last-child { border-bottom: none; }
         .custom-option:hover { background: #f1f5f9; }
 
-        .package-input-wrapper { display: flex; align-items: center; gap: 4px; background: #fff; border: 1px solid var(--border-color); border-radius: 6px; padding: 0 6px; width: 75px; flex-shrink: 0; box-sizing: border-box; }
-        .package-input-wrapper input { border: none; padding: 8px 0; width: 42px; text-align: center; font-size: 0.85rem; background: transparent; }
+        /* KOLLI & MULTI-PLUS WRAPPER */
+        .package-input-wrapper { 
+            display: flex; align-items: center; gap: 2px; background: #fff; 
+            border: 1px solid var(--border-color); border-radius: 6px; padding: 0 4px; 
+            width: 105px; flex-shrink: 0; box-sizing: border-box; 
+        }
+        .package-input-wrapper input { 
+            border: none; padding: 8px 0; width: 52px; text-align: center; 
+            font-size: 0.85rem; background: transparent; font-weight: bold; color: #ef4444; 
+        }
         .package-input-wrapper input:focus { outline: none; }
+
+        .btn-multi-plus {
+            background: var(--success-color); color: white; border: none;
+            width: 22px; height: 22px; border-radius: 4px; font-weight: bold;
+            font-size: 0.9rem; line-height: 1; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; transition: background 0.2s;
+            flex-shrink: 0;
+        }
+        .btn-multi-plus:hover { background: var(--success-hover); }
+
+        .multi-badge {
+            background: #dcfce7; color: #15803d; border: 1px solid #86efac;
+            font-size: 0.7rem; font-weight: bold; padding: 1px 4px; border-radius: 4px;
+            display: inline-flex; align-items: center; gap: 2px; margin-left: 2px;
+        }
 
         .suggestions-box {
             position: absolute; bottom: 100%; left: 0; right: 0;
@@ -298,20 +321,21 @@
         .station-title { font-size: 1.15rem; font-weight: 700; color: var(--text-color); margin-bottom: 10px; line-height: 1.3; }
         
         .colli-big-badge {
-            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
             background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5;
-            font-size: 1.2rem; font-weight: 800; padding: 6px 18px; border-radius: 50px;
+            font-size: 1.2rem; font-weight: 800; padding: 8px 18px; border-radius: 16px; margin: 0 auto;
         }
-        
+        .colli-sub-breakdown { font-size: 0.8rem; font-weight: 600; color: #b91c1c; margin-top: 2px; }
+
         .status-badge-loaded {
             display: inline-flex; align-items: center; gap: 4px; background: #dcfce7;
             color: #166534; border: 1px solid #86efac; font-size: 0.75rem; font-weight: 700;
-            padding: 3px 10px; border-radius: 12px; margin-top: 6px;
+            padding: 3px 10px; border-radius: 12px; margin-top: 8px;
         }
         .status-badge-unloaded {
             display: inline-flex; align-items: center; gap: 4px; background: #f1f5f9;
             color: #64748b; border: 1px solid #cbd5e1; font-size: 0.75rem; font-weight: 700;
-            padding: 3px 10px; border-radius: 12px; margin-top: 6px;
+            padding: 3px 10px; border-radius: 12px; margin-top: 8px;
         }
 
         .modal-footer {
@@ -387,10 +411,11 @@
                     </div>
                 </div>
 
-                <!-- 2. Kollis -->
-                <div class="package-input-wrapper" title="Anzahl Kollis">
+                <!-- 2. Kollis (Unterstützt auch 16+23+5) -->
+                <div class="package-input-wrapper" title="Anzahl Kollis (Eingabe wie 16+23+5 möglich)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                    <input type="number" id="newAddressKoll" value="1" min="1" max="999" maxlength="3" style="color:#ef4444; font-weight:bold;">
+                    <input type="text" id="newAddressKoll" value="1" placeholder="1">
+                    <button class="btn-multi-plus" onclick="triggerMultiKolliPrompt()" title="Mehrere Frachtbriefe / Kollis addieren">+</button>
                 </div>
 
                 <!-- 3. Name (Suchfeld) -->
@@ -484,6 +509,39 @@
         return stationColors[idx % stationColors.length];
     }
 
+    /* PARSER FÜR KOLLI-EINGABEN (Unterstützt Einzelwerte & Formeln wie 16+23+5) */
+    function parseKolliString(str) {
+        if (!str) return { total: 1, detail: "", isMulti: false };
+        const cleanStr = String(str).replace(/\s+/g, '');
+        if (cleanStr.includes('+')) {
+            const parts = cleanStr.split('+').map(p => parseInt(p, 10)).filter(p => !isNaN(p) && p > 0);
+            if (parts.length > 1) {
+                const total = parts.reduce((a, b) => a + b, 0);
+                return { total: total, detail: parts.join(' + '), isMulti: true };
+            }
+        }
+        const singleVal = parseInt(cleanStr, 10);
+        const validVal = isNaN(singleVal) || singleVal < 1 ? 1 : singleVal;
+        return { total: validVal, detail: "", isMulti: false };
+    }
+
+    /* SCHNELLES POPUP FÜR MULTI-FRACHTBRIEF HINZUFÜGEN (+) */
+    function triggerMultiKolliPrompt() {
+        const inputEl = document.getElementById('newAddressKoll');
+        const currentVal = inputEl.value.trim();
+        const addition = prompt("Weitere Frachtbrief-Kollis hinzufügen (z. B. 23):", "");
+        if (addition) {
+            const num = parseInt(addition, 10);
+            if (!isNaN(num) && num > 0) {
+                if (currentVal === "" || currentVal === "0") {
+                    inputEl.value = num.toString();
+                } else {
+                    inputEl.value = `${currentVal}+${num}`;
+                }
+            }
+        }
+    }
+
     /* TOUR IN LOKALE .TUR-DATEI SPEICHERN */
     function saveTourToFile() {
         if (addresses.length === 0) {
@@ -549,14 +607,19 @@
 
                 // Stopps wiederherstellen
                 const loadedStops = tourPayload.stops || tourPayload.addresses;
-                addresses = loadedStops.map(s => ({
-                    name: s.name || "Unbenannter Stopp",
-                    lat: parseFloat(s.lat),
-                    lng: parseFloat(s.lng),
-                    type: s.type || 'unload',
-                    koll: parseInt(s.koll) || 1,
-                    loaded: Boolean(s.loaded)
-                }));
+                addresses = loadedStops.map(s => {
+                    const parsed = parseKolliString(s.kollDetail || s.koll || 1);
+                    return {
+                        name: s.name || "Unbenannter Stopp",
+                        lat: parseFloat(s.lat),
+                        lng: parseFloat(s.lng),
+                        type: s.type || 'unload',
+                        koll: parsed.total,
+                        kollDetail: s.kollDetail || parsed.detail,
+                        isMulti: s.isMulti || parsed.isMulti,
+                        loaded: Boolean(s.loaded)
+                    };
+                });
 
                 updateAddressUI();
                 await calculateRoute();
@@ -747,7 +810,7 @@
         if (type === 'load') {
             svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f97316" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         } else if (type === 'unload') {
-            svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 7.5L3.3 3.7M5.5 7.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         } else {
             svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M7.5 1C5.01 1 3 3.01 3 5.5C3 8.75 7.5 14 7.5 14C7.5 14 12 8.75 12 5.5C12 3.01 9.99 1 7.5 1Z" fill="#64748b"/><circle cx="7.5" cy="5.5" r="2" fill="white"/></svg>`;
         }
@@ -800,12 +863,21 @@
             const data = await response.json();
             let resolvedName = (data && data.display_name) ? cleanAndFormatAddress(data.display_name, data.address) : `Punkt (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
             logGeoData(resolvedName, lat, lng);
-            addresses.push({ name: resolvedName, lat: lat, lng: lng, type: type, koll: 1, loaded: false });
+            
+            const kollVal = parseKolliString(document.getElementById('newAddressKoll').value);
+            addresses.push({ 
+                name: resolvedName, lat: lat, lng: lng, type: type, 
+                koll: kollVal.total, kollDetail: kollVal.detail, isMulti: kollVal.isMulti, loaded: false 
+            });
             updateAddressUI(); await calculateRoute();
         } catch (err) {
             let fallbackName = `Standort (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
             logGeoData(fallbackName, lat, lng);
-            addresses.push({ name: fallbackName, lat: lat, lng: lng, type: type, koll: 1, loaded: false });
+            const kollVal = parseKolliString(document.getElementById('newAddressKoll').value);
+            addresses.push({ 
+                name: fallbackName, lat: lat, lng: lng, type: type, 
+                koll: kollVal.total, kollDetail: kollVal.detail, isMulti: kollVal.isMulti, loaded: false 
+            });
             updateAddressUI(); await calculateRoute();
         } finally { statusEl.innerText = "Bereit."; statusEl.className = ""; }
     }
@@ -916,9 +988,13 @@
         
         let obj = selectedNewAddress ? selectedNewAddress : await geocodeAddress(val);
         if (obj) {
+            const parsedKolli = parseKolliString(kollInput.value);
             obj.type = currentStopType;
-            obj.koll = parseInt(kollInput.value) || 1;
+            obj.koll = parsedKolli.total;
+            obj.kollDetail = parsedKolli.detail;
+            obj.isMulti = parsedKolli.isMulti;
             obj.loaded = false;
+            
             logGeoData(obj.name, obj.lat, obj.lng);
             addresses.push(obj);
             input.value = ""; kollInput.value = "1";
@@ -957,17 +1033,22 @@
         event.stopPropagation();
         const container = event.currentTarget;
         if (container.querySelector('input')) return;
-        const currentValue = addresses[tourIndex].koll || 1;
+        
+        const currentStop = addresses[tourIndex];
+        const rawValue = currentStop.isMulti ? currentStop.kollDetail : (currentStop.koll || 1);
+
         container.innerHTML = `
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-            <input type="number" value="${currentValue}" min="1" max="999" style="width: 42px; padding: 1px 2px; font-size: 0.8rem; border: 1px solid #ef4444; border-radius: 4px; color: #ef4444; font-weight: bold; text-align: center; outline: none; background: #fff;">
+            <input type="text" value="${rawValue}" style="width: 65px; padding: 1px 2px; font-size: 0.8rem; border: 1px solid #ef4444; border-radius: 4px; color: #ef4444; font-weight: bold; text-align: center; outline: none; background: #fff;" title="Wert oder Formel eintippen (z. B. 16+23+5)">
         `;
         const input = container.querySelector('input');
         input.focus(); input.select();
+        
         const save = async () => {
-            let val = parseInt(input.value);
-            if (isNaN(val) || val < 1) val = 1;
-            addresses[tourIndex].koll = val;
+            const parsed = parseKolliString(input.value);
+            addresses[tourIndex].koll = parsed.total;
+            addresses[tourIndex].kollDetail = parsed.detail;
+            addresses[tourIndex].isMulti = parsed.isMulti;
             updateAddressUI(); await calculateRoute();
         };
         input.addEventListener('blur', save);
@@ -1009,10 +1090,12 @@
             
             let colorBadge = `<span style="background-color: ${labelBgColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; flex-shrink: 0; cursor: pointer;" title="Typ: ${addr.type} (Klicken zum Ändern)" onclick="cycleStopType(${tourIndex})">${labelText}</span>`;
 
+            let multiSymbol = addr.isMulti ? `<span class="multi-badge" title="Multi-Frachtbrief: ${addr.kollDetail}">➕ ${addr.koll}</span>` : `<span>${addr.koll || 1}</span>`;
+
             let kollInfo = `
-                <span class="kolli-click-area" onclick="makeKolliEditable(event, ${tourIndex})" style="display:inline-flex; align-items:center; gap:3px; color:#ef4444; font-weight:bold; cursor:pointer; padding:2px 4px; border-radius:4px;" title="Klicken zum Ändern">
+                <span class="kolli-click-area" onclick="makeKolliEditable(event, ${tourIndex})" style="display:inline-flex; align-items:center; gap:3px; color:#ef4444; font-weight:bold; cursor:pointer; padding:2px 4px; border-radius:4px;" title="Klicken zum Ändern / Formel anpassen (${addr.isMulti ? addr.kollDetail : addr.koll})">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                    <span>${addr.koll || 1}</span>
+                    ${multiSymbol}
                 </span>`;
 
             let formattedName = formatAddressNameBold(addr.name);
@@ -1113,9 +1196,11 @@
                 let iconMarker = item.type === 'load' ? createMarkerIcon(labelText, '#f97316') : (item.type === 'unload' ? createMarkerIcon(labelText, '#0284c7') : createMarkerIcon('VIA', '#64748b'));
                 let labelTypeStr = item.type === 'load' ? 'Laden' : (item.type === 'unload' ? 'Entladen' : 'Via-Punkt');
 
+                let kolliText = item.isMulti ? `${item.koll} (${item.kollDetail})` : (item.koll || 1);
+
                 // SPATIAL MATCH CHECK FOR MARKER POPUP
                 const itemMatch = getMatchedStationData(item.lat, item.lng, 200);
-                let popupHtml = `<b>${labelTypeStr}:</b><br>${item.name}<br>Kollis: ${item.koll || 1}`;
+                let popupHtml = `<b>${labelTypeStr}:</b><br>${item.name}<br>Kollis: ${kolliText}`;
                 if (itemMatch) {
                     popupHtml += `<br><span style="color:#0369a1; font-size:0.8rem;">ℹ️ ${itemMatch.info}</span>`;
                 }
@@ -1217,10 +1302,12 @@
                         ? `<span style="color:var(--success-color); font-weight:bold; margin-right:4px; cursor:pointer;" onclick="toggleStopLoadedStatus(${addrIndex})" title="${actionTooltipText}">✔</span>` 
                         : `<span style="color:var(--text-muted); font-weight:normal; margin-right:4px; cursor:pointer;" onclick="toggleStopLoadedStatus(${addrIndex})" title="${actionTooltipText}">○</span>`;
 
+                    let multiSymbol = stop.isMulti ? `<span class="multi-badge" title="Multi-Frachtbrief: ${stop.kollDetail}">➕ ${stop.koll}</span>` : `<span>${stop.koll || 1}</span>`;
+
                     let kollBadge = `
                         <span class="kolli-click-area" onclick="makeKolliEditable(event, ${addrIndex})" style="display:inline-flex; align-items:center; gap:3px; color:#ef4444; font-weight:bold; cursor:pointer; padding:2px 4px; border-radius:4px;" title="Klicken zum Ändern">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                            <span>${stop.koll || 1}</span>
+                            ${multiSymbol}
                         </span>`;
 
                     let formattedName = formatAddressNameBold(stop.name);
@@ -1334,6 +1421,12 @@
             `;
         }
 
+        let multiDetailBadge = currentStop.isMulti ? `
+            <div class="colli-sub-breakdown">
+                📄 Frachtbriefe: ${currentStop.kollDetail}
+            </div>
+        ` : '';
+
         let html = `
             <div class="progress-bar-container" title="Gesamtfortschritt: ${loadedKollis} / ${totalKollis} Kollis (${progressPercent}%)">
                 <div class="progress-bar-fill" style="width: ${progressPercent}%;"></div>
@@ -1365,11 +1458,13 @@
                 ? (isLoaded ? 'ENTLADEN' : 'OFFEN')
                 : (isLoaded ? 'BELADEN' : 'OFFEN');
 
+            let multiTooltip = stop.isMulti ? ` (${stop.kollDetail})` : '';
+
             html += `
                 <div class="${statusClass}" 
                      style="width: ${pct}%; background-color: ${color};" 
                      onclick="selectAssistantStep(${idx})"
-                     title="Station ${idx + 1}: ${stop.name} (${stopKoll} Kollis - ${tooltipStatusText})">
+                     title="Station ${idx + 1}: ${stop.name} (${stopKoll} Kollis${multiTooltip} - ${tooltipStatusText})">
                      ${contentLabel}
                 </div>
             `;
@@ -1390,7 +1485,7 @@
             html += `
                 <div class="legend-item" style="${activeStyle} cursor: pointer;" onclick="selectAssistantStep(${idx})">
                     <span class="legend-color-dot ${isLoaded ? 'loaded' : 'unloaded'}" style="background-color: ${color};"></span>
-                    <span>S${idx + 1}: ${stop.koll || 1}k ${isLoaded ? '✔' : ''}</span>
+                    <span>S${idx + 1}: ${stop.koll || 1}k ${stop.isMulti ? '➕' : ''} ${isLoaded ? '✔' : ''}</span>
                 </div>
             `;
         });
@@ -1403,8 +1498,11 @@
                 <div class="station-step-label">Station ${assistantIndex + 1} von ${totalStops} (${isLoadStop ? 'Ladestopp' : 'Entladestopp'})</div>
                 <div class="station-title">${currentStop.name}</div>
                 <div class="colli-big-badge">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                    ${currentStopKollis} Kollis (${currentStopPct}% der Ladung)
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                        ${currentStopKollis} Kollis (${currentStopPct}% der Ladung)
+                    </div>
+                    ${multiDetailBadge}
                 </div>
                 ${assistantStationInfoHtml}
                 <br>
