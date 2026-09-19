@@ -98,7 +98,7 @@
         .custom-option:hover { background: #f1f5f9; }
 
         .package-input-wrapper { display: flex; align-items: center; gap: 4px; background: #fff; border: 1px solid var(--border-color); border-radius: 6px; padding: 0 6px; width: 85px; flex-shrink: 0; box-sizing: border-box; }
-        .package-input-wrapper input { border: none; padding: 8px 0; width: 55px; text-align: center; font-size: 0.85rem; background: transparent; font-weight: bold; color: var(--danger-color); }
+        .package-input-wrapper input { border: none; padding: 8px 0; width: 52px; text-align: center; font-size: 0.85rem; background: transparent; font-weight: bold; color: #ef4444; }
         .package-input-wrapper input:focus { outline: none; }
 
         .suggestions-box {
@@ -376,7 +376,7 @@
                     </div>
                     <div class="custom-options" id="customDropdownOptions">
                         <div class="custom-option" onclick="selectStopType('load')" title="Laden">
-                            <svg width="18" height="18" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f97316" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         </div>
                         <div class="custom-option" onclick="selectStopType('unload')" title="Entladen">
                             <svg width="18" height="18" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -387,10 +387,10 @@
                     </div>
                 </div>
 
-                <!-- 2. Kollis (unterstützt auch Multi-Stops wie 4+4+2) -->
-                <div class="package-input-wrapper" title="Anzahl Kollis (z.B. 1 oder 4+4+2)">
+                <!-- 2. Kollis (Unterstützt Formeln wie 5+3) -->
+                <div class="package-input-wrapper" title="Anzahl Kollis (z. B. 5 oder 5+3)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                    <input type="text" id="newAddressKoll" value="1" placeholder="1 oder 4+4+2">
+                    <input type="text" id="newAddressKoll" value="1" placeholder="1">
                 </div>
 
                 <!-- 3. Name (Suchfeld) -->
@@ -443,6 +443,28 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+    // HELFER-FUNKTIONEN FÜR KOLLI-BERECHNUNG (EINGABE Z.B. "5+3+2")
+    function parseKolliSum(val) {
+        if (val === undefined || val === null || val === "") return 1;
+        if (typeof val === 'number') return isNaN(val) ? 1 : val;
+        const str = String(val).trim();
+        if (!str) return 1;
+        const parts = str.split('+');
+        let total = 0;
+        for (let part of parts) {
+            let num = parseInt(part.trim(), 10);
+            if (!isNaN(num)) {
+                total += num;
+            }
+        }
+        return total > 0 ? total : 1;
+    }
+
+    function getKolliRaw(val) {
+        if (val === undefined || val === null || val === "") return "1";
+        return String(val).trim();
+    }
+
     // DYNAMISCHE STATIONS-DATENBANK (WIRD VIA FETCH GEFLADEN)
     let stationDatabase = [];
 
@@ -482,61 +504,6 @@
 
     function getStationColor(idx) {
         return stationColors[idx % stationColors.length];
-    }
-
-    /* PARSEN VON KOLLI-EXPRESSIONS (Z.B. "4+4+2" ODER "10") */
-    function parseKolliExpression(kollVal) {
-        if (kollVal === null || kollVal === undefined) return { parts: [1], total: 1, count: 1, raw: "1" };
-        let str = String(kollVal).trim();
-        if (!str) return { parts: [1], total: 1, count: 1, raw: "1" };
-        
-        let parts = str.split('+').map(p => parseInt(p.trim(), 10)).filter(n => !isNaN(n) && n > 0);
-        if (parts.length === 0) parts = [1];
-        
-        let total = parts.reduce((sum, n) => sum + n, 0);
-        return {
-            parts: parts,
-            total: total,
-            count: parts.length, // Anzahl der Frachtbriefe
-            raw: str
-        };
-    }
-
-    /* BERECHNET DEN BEZEICHNUNGS-BEREICH (Z.B. U6-8 ODER L1-3) FÜR EINEN STOPP */
-    function getStopLabelInfo(addr, currentLoadIndex, currentUnloadIndex) {
-        if (addr.type === 'via') {
-            return {
-                label: 'VIA',
-                nextLoadIndex: currentLoadIndex,
-                nextUnloadIndex: currentUnloadIndex,
-                kolliInfo: parseKolliExpression(addr.koll)
-            };
-        }
-
-        const kolliInfo = parseKolliExpression(addr.koll);
-        const count = kolliInfo.count; // Anzahl Frachtbriefe
-
-        if (addr.type === 'load') {
-            const startIdx = currentLoadIndex;
-            const endIdx = currentLoadIndex + count - 1;
-            const label = (count > 1) ? `L${startIdx}-${endIdx}` : `L${startIdx}`;
-            return {
-                label: label,
-                nextLoadIndex: currentLoadIndex + count,
-                nextUnloadIndex: currentUnloadIndex,
-                kolliInfo: kolliInfo
-            };
-        } else { // unload
-            const startIdx = currentUnloadIndex;
-            const endIdx = currentUnloadIndex + count - 1;
-            const label = (count > 1) ? `U${startIdx}-${endIdx}` : `U${startIdx}`;
-            return {
-                label: label,
-                nextLoadIndex: currentLoadIndex,
-                nextUnloadIndex: currentUnloadIndex + count,
-                kolliInfo: kolliInfo
-            };
-        }
     }
 
     /* TOUR IN LOKALE .TUR-DATEI SPEICHERN */
@@ -596,20 +563,18 @@
                     }
                 }
 
-                // Depot wiederherstellen
                 if (tourPayload.depot && typeof tourPayload.depot.lat === 'number' && typeof tourPayload.depot.lng === 'number') {
                     depotData = tourPayload.depot;
                     document.getElementById('depotInput').value = depotData.name || "";
                 }
 
-                // Stopps wiederherstellen
                 const loadedStops = tourPayload.stops || tourPayload.addresses;
                 addresses = loadedStops.map(s => ({
                     name: s.name || "Unbenannter Stopp",
                     lat: parseFloat(s.lat),
                     lng: parseFloat(s.lng),
                     type: s.type || 'unload',
-                    koll: (s.koll !== undefined && s.koll !== null) ? String(s.koll) : "1",
+                    koll: s.koll !== undefined ? s.koll : 1,
                     loaded: Boolean(s.loaded)
                 }));
 
@@ -628,7 +593,6 @@
         reader.readAsText(file);
     }
 
-    /* SPATIAL MATCHING: PRÜFT RADIUS VON 200 METER GEGEN DIE GELADENE JSON DATENBANK */
     function getMatchedStationData(lat, lng, radiusMeters = 200) {
         for (const st of stationDatabase) {
             const distKm = getDistanceFromLatLonInKm(lat, lng, st.lat, st.lng);
@@ -639,7 +603,6 @@
         return null;
     }
 
-    /* SICHERHEITSABFRAGE BEI BEREITS BEGONNENER BELADUNG */
     function checkLoadingSafety(actionName) {
         const hasLoadedItems = addresses.some(a => a.loaded);
         if (hasLoadedItems) {
@@ -652,7 +615,6 @@
         return true;
     }
 
-    /* GESAMTEN BELADEZUSTAND ZURÜCKSETZEN */
     function resetAllLoadingStatus() {
         if (!addresses.some(a => a.loaded)) {
             alert("Es sind aktuell keine Stopps als bearbeitet markiert.");
@@ -668,7 +630,6 @@
         }
     }
 
-    /* EINZELNEN STOPP-STATUS TOGGLEN (GELADEN / UNGELADEN) */
     function toggleStopLoadedStatus(tourIndex) {
         if (addresses[tourIndex]) {
             addresses[tourIndex].loaded = !addresses[tourIndex].loaded;
@@ -689,7 +650,7 @@
         const triggerLabel = document.getElementById('selectedIconLabel');
         let svgHtml = '';
         if (type === 'load') {
-            svgHtml = `<svg width="18" height="18" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f97316" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            svgHtml = `<svg width="18" height="18" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         } else if (type === 'unload') {
             svgHtml = `<svg width="18" height="18" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         } else {
@@ -713,7 +674,6 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    /* EXPLICITE GEO-DATEN-AUSGABE FÜR MANUELLE DATENBANK-BEFÜLLUNG */
     function logGeoData(name, lat, lng) {
         const latNum = typeof lat === 'number' ? lat : parseFloat(lat);
         const lngNum = typeof lng === 'number' ? lng : parseFloat(lng);
@@ -800,7 +760,7 @@
         let svgContent = "";
         let tooltipText = type === 'load' ? 'Laden (Klicken zum Ändern)' : (type === 'unload' ? 'Entladen (Klicken zum Ändern)' : 'Via-Punkt (Klicken zum Ändern)');
         if (type === 'load') {
-            svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f97316" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         } else if (type === 'unload') {
             svgContent = `<svg width="16" height="16" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 7.5V1.5M5.5 1.5L3.3 3.7M5.5 1.5L7.7 3.7" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         } else {
@@ -830,7 +790,7 @@
             <div style="text-align: center; font-family: inherit; min-width: 150px;">
                 <div style="font-weight: 600; margin-bottom: 8px; font-size: 0.85rem; color: #1e293b;">Stopp hinzufügen:</div>
                 <button class="map-popup-btn" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: #fff; color: #1e293b; border: 1px solid var(--border-color); margin-bottom: 4px;" onclick="addStopFromMap(${lat}, ${lng}, 'load')">
-                    <svg width="14" height="14" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f97316" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <svg width="14" height="14" viewBox="0 0 15 15" fill="none"><path d="M1 5H10V11H1V5Z" fill="#2C3E50"/><path d="M10 7H12.5L14 9V11H10V7Z" fill="#2C3E50"/><circle cx="3.5" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="8" cy="12.5" r="1.3" fill="#1A252F"/><circle cx="12" cy="12.5" r="1.3" fill="#1A252F"/><path d="M5.5 1.5V7.5M5.5 7.5L3.3 5.3M5.5 7.5L7.7 5.3" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     Laden
                 </button>
                 <button class="map-popup-btn" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: #fff; color: #1e293b; border: 1px solid var(--border-color); margin-bottom: 4px;" onclick="addStopFromMap(${lat}, ${lng}, 'unload')">
@@ -866,14 +826,10 @@
     }
 
     function createMarkerIcon(text, bgColor) {
-        const textStr = String(text);
-        const width = textStr.length > 5 ? 44 : (textStr.length > 3 ? 38 : 30);
-        const fontSize = textStr.length > 5 ? '0.65rem' : (textStr.length > 3 ? '0.7rem' : '0.75rem');
-        
         return L.divIcon({
             className: 'custom-numbered-marker',
-            html: `<div style="background-color: ${bgColor}; color: white; width: ${width}px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: ${fontSize}; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); padding: 0 2px;">${textStr}</div>`,
-            iconSize: [width, 30], iconAnchor: [width / 2, 15], popupAnchor: [0, -15]
+            html: `<div style="background-color: ${bgColor}; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.75rem; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${text}</div>`,
+            iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -15]
         });
     }
 
@@ -1016,10 +972,10 @@
         event.stopPropagation();
         const container = event.currentTarget;
         if (container.querySelector('input')) return;
-        const currentValue = addresses[tourIndex].koll || "1";
+        const rawValue = getKolliRaw(addresses[tourIndex].koll);
         container.innerHTML = `
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-            <input type="text" value="${currentValue}" placeholder="z.B. 4+4+2" style="width: 55px; padding: 1px 2px; font-size: 0.8rem; border: 1px solid #ef4444; border-radius: 4px; color: #ef4444; font-weight: bold; text-align: center; outline: none; background: #fff;">
+            <input type="text" value="${rawValue}" style="width: 52px; padding: 1px 2px; font-size: 0.8rem; border: 1px solid #ef4444; border-radius: 4px; color: #ef4444; font-weight: bold; text-align: center; outline: none; background: #fff;">
         `;
         const input = container.querySelector('input');
         input.focus(); input.select();
@@ -1059,30 +1015,34 @@
             if (clearAllBtn) clearAllBtn.style.display = 'inline-block';
         }
         
-        let loadCounter = 1, unloadCounter = 1;
+        // ZUMMAHÄNGENDE NUMMERIERUNG FÜR STOPPS (L & U)
+        let stopCounter = 1;
 
         addresses.forEach((addr, tourIndex) => {
-            let labelInfo = getStopLabelInfo(addr, loadCounter, unloadCounter);
-            loadCounter = labelInfo.nextLoadIndex;
-            unloadCounter = labelInfo.nextUnloadIndex;
-
-            let labelText = labelInfo.label;
             let badgeHtml = getInteractiveIconHtml(addr.type, tourIndex);
-            let labelBgColor = addr.type === 'load' ? '#f97316' : (addr.type === 'unload' ? '#0284c7' : '#64748b');
+            let labelText = 'VIA';
+            if (addr.type === 'load') {
+                labelText = `L${stopCounter++}`;
+            } else if (addr.type === 'unload') {
+                labelText = `U${stopCounter++}`;
+            }
             
+            let labelBgColor = addr.type === 'load' ? '#f59e0b' : (addr.type === 'unload' ? '#0284c7' : '#64748b');
             let colorBadge = `<span style="background-color: ${labelBgColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; flex-shrink: 0; cursor: pointer;" title="Typ: ${addr.type} (Klicken zum Ändern)" onclick="cycleStopType(${tourIndex})">${labelText}</span>`;
 
-            let displayKollText = addr.koll || "1";
+            const totalKoll = parseKolliSum(addr.koll);
+            const rawKoll = getKolliRaw(addr.koll);
+            const kollTitle = rawKoll.includes('+') ? `Aufschlüsselung: ${rawKoll} (Klicken zum Bearbeiten)` : `Kollis: ${rawKoll} (Klicken zum Bearbeiten)`;
+
             let kollInfo = `
-                <span class="kolli-click-area" onclick="makeKolliEditable(event, ${tourIndex})" style="display:inline-flex; align-items:center; gap:3px; color:#ef4444; font-weight:bold; cursor:pointer; padding:2px 4px; border-radius:4px;" title="Klicken zum Ändern (z.B. 4+4+2)">
+                <span class="kolli-click-area" onclick="makeKolliEditable(event, ${tourIndex})" style="display:inline-flex; align-items:center; gap:3px; color:#ef4444; font-weight:bold; cursor:pointer; padding:2px 4px; border-radius:4px;" title="${kollTitle}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                    <span>${displayKollText}</span>
+                    <span>${totalKoll}</span>
                 </span>`;
 
             let formattedName = formatAddressNameBold(addr.name);
             let itemClass = addr.loaded ? "address-item is-loaded" : "address-item";
 
-            // SPATIAL MATCH CHECK (Radius 200m)
             const matchedStation = getMatchedStationData(addr.lat, addr.lng, 200);
             let stationInfoHtml = "";
             if (matchedStation) {
@@ -1170,27 +1130,26 @@
             });
 
             const validItems = addresses.filter(s => s && !isNaN(s.lat) && !isNaN(s.lng));
-
-            // Vorab-Nummerierung & Label-Berechnung
-            let loadCounter = 1, unloadCounter = 1;
-            validItems.forEach(item => {
-                let info = getStopLabelInfo(item, loadCounter, unloadCounter);
-                loadCounter = info.nextLoadIndex;
-                unloadCounter = info.nextUnloadIndex;
-                item._computedLabel = info.label;
-                item._computedKolli = info.kolliInfo;
-            });
+            
+            // ZUSAMMENHÄNGENDE NUMMERIERUNG FÜR KARTEN-MARKER
+            let stopCounter = 1;
 
             validItems.forEach((item, idx) => {
-                let labelText = item._computedLabel;
-                let iconMarker = item.type === 'load' ? createMarkerIcon(labelText, '#f97316') : (item.type === 'unload' ? createMarkerIcon(labelText, '#0284c7') : createMarkerIcon('VIA', '#64748b'));
+                let labelText = 'VIA';
+                if (item.type === 'load') {
+                    labelText = `L${stopCounter++}`;
+                } else if (item.type === 'unload') {
+                    labelText = `U${stopCounter++}`;
+                }
+                
+                let labelBgColor = item.type === 'load' ? '#f59e0b' : (item.type === 'unload' ? '#0284c7' : '#64748b');
+                let iconMarker = createMarkerIcon(labelText, labelBgColor);
                 let labelTypeStr = item.type === 'load' ? 'Laden' : (item.type === 'unload' ? 'Entladen' : 'Via-Punkt');
 
-                // SPATIAL MATCH CHECK FOR MARKER POPUP
                 const itemMatch = getMatchedStationData(item.lat, item.lng, 200);
-                let kolliDisplayStr = item._computedKolli.raw;
-                let totalKollisNum = item._computedKolli.total;
-                let popupHtml = `<b>${labelTypeStr} (${labelText}):</b><br>${item.name}<br>Kollis: ${kolliDisplayStr} (${totalKollisNum} gesamt)`;
+                const itemTotalKoll = parseKolliSum(item.koll);
+                const itemRawKoll = getKolliRaw(item.koll);
+                let popupHtml = `<b>${labelTypeStr} (${labelText}):</b><br>${item.name}<br>Kollis: ${itemTotalKoll}` + (itemRawKoll.includes('+') ? ` (${itemRawKoll})` : '');
                 if (itemMatch) {
                     popupHtml += `<br><span style="color:#0369a1; font-size:0.8rem;">ℹ️ ${itemMatch.info}</span>`;
                 }
@@ -1271,8 +1230,11 @@
                 html += `<strong>Beladereihenfolge (LIFO):</strong><br><ol style="margin: 6px 0 6px 20px; padding: 0;">`;
                 
                 displayStops.forEach((stop) => {
-                    let badgeTxt = stop._computedLabel;
-                    let badgeBg = stop.type === 'load' ? '#f97316' : '#0284c7';
+                    let originalIndex = nonViaStops.indexOf(stop);
+                    let stopNum = originalIndex + 1;
+
+                    let badgeTxt = stop.type === 'load' ? `L${stopNum}` : `U${stopNum}`;
+                    let badgeBg = stop.type === 'load' ? '#f59e0b' : '#0284c7';
                     let typeBadgeHtml = `<span style="background-color: ${badgeBg}; color: white; padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; font-weight: bold;">${badgeTxt}</span>`;
                     
                     let addrIndex = addresses.indexOf(stop);
@@ -1281,16 +1243,18 @@
                         ? `<span style="color:var(--success-color); font-weight:bold; margin-right:4px; cursor:pointer;" onclick="toggleStopLoadedStatus(${addrIndex})" title="${actionTooltipText}">✔</span>` 
                         : `<span style="color:var(--text-muted); font-weight:normal; margin-right:4px; cursor:pointer;" onclick="toggleStopLoadedStatus(${addrIndex})" title="${actionTooltipText}">○</span>`;
 
-                    let kollDisplay = stop.koll || "1";
+                    const totalKoll = parseKolliSum(stop.koll);
+                    const rawKoll = getKolliRaw(stop.koll);
+                    const kollTitle = rawKoll.includes('+') ? `Aufschlüsselung: ${rawKoll} (Klicken zum Ändern)` : `Kollis: ${rawKoll} (Klicken zum Ändern)`;
+
                     let kollBadge = `
-                        <span class="kolli-click-area" onclick="makeKolliEditable(event, ${addrIndex})" style="display:inline-flex; align-items:center; gap:3px; color:#ef4444; font-weight:bold; cursor:pointer; padding:2px 4px; border-radius:4px;" title="Klicken zum Ändern (z.B. 4+4+2)">
+                        <span class="kolli-click-area" onclick="makeKolliEditable(event, ${addrIndex})" style="display:inline-flex; align-items:center; gap:3px; color:#ef4444; font-weight:bold; cursor:pointer; padding:2px 4px; border-radius:4px;" title="${kollTitle}">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                            <span>${kollDisplay}</span>
+                            <span>${totalKoll}</span>
                         </span>`;
 
                     let formattedName = formatAddressNameBold(stop.name);
 
-                    /* SPATIAL MATCH CHECK UND ANZEIGE IN DER UNTEREN LISTE */
                     const matchedStation = getMatchedStationData(stop.lat, stop.lng, 200);
                     let stationInfoHtml = "";
                     if (matchedStation) {
@@ -1304,8 +1268,8 @@
                     html += `<li style="margin-bottom: 6px;">${loadedCheck}${typeBadgeHtml} ${kollBadge} ${formattedName}${stationInfoHtml}</li>`;
                 });
 
-                const totalKollis = nonViaStops.reduce((sum, s) => sum + (s._computedKolli ? s._computedKolli.total : 1), 0);
-                const loadedKollis = nonViaStops.filter(s => s.loaded).reduce((sum, s) => sum + (s._computedKolli ? s._computedKolli.total : 1), 0);
+                const totalKollis = nonViaStops.reduce((sum, s) => sum + parseKolliSum(s.koll), 0);
+                const loadedKollis = nonViaStops.filter(s => s.loaded).reduce((sum, s) => sum + parseKolliSum(s.koll), 0);
                 const progressPct = totalKollis > 0 ? Math.round((loadedKollis / totalKollis) * 100) : 0;
 
                 html += `</ol><hr style="border:0; border-top:1px solid var(--border-color); margin:8px 0;">`;
@@ -1338,16 +1302,6 @@
             alert("Keine Beladestationen vorhanden.");
             return;
         }
-
-        // Berechnung der Labels für gültige Stopps
-        let lCounter = 1, uCounter = 1;
-        validStops.forEach(item => {
-            let info = getStopLabelInfo(item, lCounter, uCounter);
-            lCounter = info.nextLoadIndex;
-            uCounter = info.nextUnloadIndex;
-            item._computedLabel = info.label;
-            item._computedKolli = info.kolliInfo;
-        });
 
         assistantStops = [...validStops].reverse();
         
@@ -1390,17 +1344,15 @@
         const currentStop = assistantStops[assistantIndex];
         const isLoadStop = currentStop.type === 'load';
 
-        const totalKollis = assistantStops.reduce((sum, s) => sum + (s._computedKolli ? s._computedKolli.total : 1), 0);
-        const loadedKollis = assistantStops.filter(s => s.loaded).reduce((sum, s) => sum + (s._computedKolli ? s._computedKolli.total : 1), 0);
+        const totalKollis = assistantStops.reduce((sum, s) => sum + parseKolliSum(s.koll), 0);
+        const loadedKollis = assistantStops.filter(s => s.loaded).reduce((sum, s) => sum + parseKolliSum(s.koll), 0);
         const progressPercent = totalKollis > 0 ? Math.round((loadedKollis / totalKollis) * 100) : 0;
 
-        const currentStopKollis = currentStop._computedKolli ? currentStop._computedKolli.total : 1;
-        const currentStopRaw = currentStop._computedKolli ? currentStop._computedKolli.raw : "1";
+        const currentStopKollis = parseKolliSum(currentStop.koll);
+        const currentStopRaw = getKolliRaw(currentStop.koll);
         const currentStopPct = totalKollis > 0 ? Math.round((currentStopKollis / totalKollis) * 100) : 0;
         const currentStopColor = getStationColor(assistantIndex);
-        const currentStopLabel = currentStop._computedLabel || (isLoadStop ? 'L' : 'U');
 
-        // SPATIAL MATCH CHECK FOR ASSISTANT MODAL
         const matched = getMatchedStationData(currentStop.lat, currentStop.lng, 200);
         let assistantStationInfoHtml = "";
         if (matched) {
@@ -1427,17 +1379,17 @@
         `;
 
         assistantStops.forEach((stop, idx) => {
-            const stopKoll = stop._computedKolli ? stop._computedKolli.total : 1;
+            const stopKoll = parseKolliSum(stop.koll);
+            const rawKoll = getKolliRaw(stop.koll);
             const pct = totalKollis > 0 ? (stopKoll / totalKollis) * 100 : 0;
             const isLoaded = stop.loaded;
             const isCurrent = idx === assistantIndex;
             const color = getStationColor(idx);
-            const stopLabel = stop._computedLabel || (idx + 1);
 
             let statusClass = isLoaded ? 'cargo-segment loaded' : 'cargo-segment unloaded';
             if (isCurrent) statusClass += ' active-target';
 
-            let contentLabel = pct > 8 ? `${stopLabel} ${isLoaded ? '✔' : '⏳'}` : (pct > 4 ? `${stopLabel}` : '');
+            let contentLabel = pct > 8 ? `#${idx + 1} ${isLoaded ? '✔' : '⏳'}` : (pct > 4 ? `#${idx + 1}` : '');
 
             let tooltipStatusText = stop.type === 'load'
                 ? (isLoaded ? 'ENTLADEN' : 'OFFEN')
@@ -1447,7 +1399,7 @@
                 <div class="${statusClass}" 
                      style="width: ${pct}%; background-color: ${color};" 
                      onclick="selectAssistantStep(${idx})"
-                     title="${stopLabel}: ${stop.name} (${stopKoll} Kollis [${stop.koll}] - ${tooltipStatusText})">
+                     title="Station ${idx + 1}: ${stop.name} (${stopKoll} Kollis ${rawKoll.includes('+') ? '[' + rawKoll + ']' : ''} - ${tooltipStatusText})">
                      ${contentLabel}
                 </div>
             `;
@@ -1464,13 +1416,11 @@
             const isLoaded = stop.loaded;
             const isCurrent = idx === assistantIndex;
             const activeStyle = isCurrent ? 'font-weight: bold; color: #fff;' : '';
-            const stopLabel = stop._computedLabel || (idx + 1);
-            const stopKollStr = stop.koll || "1";
 
             html += `
                 <div class="legend-item" style="${activeStyle} cursor: pointer;" onclick="selectAssistantStep(${idx})">
                     <span class="legend-color-dot ${isLoaded ? 'loaded' : 'unloaded'}" style="background-color: ${color};"></span>
-                    <span>${stopLabel}: ${stopKollStr} ${isLoaded ? '✔' : ''}</span>
+                    <span>S${idx + 1}: ${parseKolliSum(stop.koll)}k ${isLoaded ? '✔' : ''}</span>
                 </div>
             `;
         });
@@ -1480,9 +1430,9 @@
             </div>
 
             <div class="station-card" style="border-color: ${currentStopColor};">
-                <div class="station-step-label">Station ${assistantIndex + 1} von ${totalStops} (${currentStopLabel} - ${isLoadStop ? 'Ladestopp' : 'Entladestopp'})</div>
+                <div class="station-step-label">Station ${assistantIndex + 1} von ${totalStops} (${isLoadStop ? 'Ladestopp' : 'Entladestopp'})</div>
                 <div class="station-title">${currentStop.name}</div>
-                <div class="colli-big-badge">
+                <div class="colli-big-badge" title="${currentStopRaw.includes('+') ? 'Aufschlüsselung: ' + currentStopRaw : ''}">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
                     ${currentStopKollis} Kollis ${currentStopRaw.includes('+') ? `(${currentStopRaw})` : ''} (${currentStopPct}% der Ladung)
                 </div>
