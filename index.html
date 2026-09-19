@@ -443,6 +443,32 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+    // BERECHNUNGSLOGIK FÜR LABELS BASIEREND AUF KOLLI-TEILEN (z. B. 5+6+7 -> U3-5, 2+2+3+5 -> L5-8)
+    function computeStopLabels(stopsList) {
+        const labels = new Array(stopsList.length);
+        let currentSeq = 1;
+
+        stopsList.forEach((item, idx) => {
+            if (!item) return;
+            if (item.type === 'via') {
+                labels[idx] = 'VIA';
+            } else {
+                const kollStr = String(item.koll !== undefined ? item.koll : "1").trim();
+                const parts = kollStr ? kollStr.split('+') : ["1"];
+                const numParts = Math.max(1, parts.length);
+
+                const startNum = currentSeq;
+                const endNum = currentSeq + numParts - 1;
+                currentSeq = endNum + 1;
+
+                const prefix = item.type === 'load' ? 'L' : 'U';
+                labels[idx] = (numParts === 1) ? `${prefix}${startNum}` : `${prefix}${startNum}-${endNum}`;
+            }
+        });
+
+        return labels;
+    }
+
     // HELFER-FUNKTIONEN FÜR KOLLI-BERECHNUNG (EINGABE Z.B. "5+3+2")
     function parseKolliSum(val) {
         if (val === undefined || val === null || val === "") return 1;
@@ -828,7 +854,7 @@
     function createMarkerIcon(text, bgColor) {
         return L.divIcon({
             className: 'custom-numbered-marker',
-            html: `<div style="background-color: ${bgColor}; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.75rem; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${text}</div>`,
+            html: `<div style="background-color: ${bgColor}; color: white; padding: 0 6px; height: 30px; min-width: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.75rem; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); box-sizing: border-box;">${text}</div>`,
             iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -15]
         });
     }
@@ -1015,17 +1041,12 @@
             if (clearAllBtn) clearAllBtn.style.display = 'inline-block';
         }
         
-        // ZUMMAHÄNGENDE NUMMERIERUNG FÜR STOPPS (L & U)
-        let stopCounter = 1;
+        // NEUE BEZEICHNUNGEN BASIEREND AUF KOLLI-TEILEN
+        const labels = computeStopLabels(addresses);
 
         addresses.forEach((addr, tourIndex) => {
             let badgeHtml = getInteractiveIconHtml(addr.type, tourIndex);
-            let labelText = 'VIA';
-            if (addr.type === 'load') {
-                labelText = `L${stopCounter++}`;
-            } else if (addr.type === 'unload') {
-                labelText = `U${stopCounter++}`;
-            }
+            let labelText = labels[tourIndex] || 'VIA';
             
             let labelBgColor = addr.type === 'load' ? '#f59e0b' : (addr.type === 'unload' ? '#0284c7' : '#64748b');
             let colorBadge = `<span style="background-color: ${labelBgColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; flex-shrink: 0; cursor: pointer;" title="Typ: ${addr.type} (Klicken zum Ändern)" onclick="cycleStopType(${tourIndex})">${labelText}</span>`;
@@ -1130,18 +1151,10 @@
             });
 
             const validItems = addresses.filter(s => s && !isNaN(s.lat) && !isNaN(s.lng));
-            
-            // ZUSAMMENHÄNGENDE NUMMERIERUNG FÜR KARTEN-MARKER
-            let stopCounter = 1;
+            const validItemLabels = computeStopLabels(validItems);
 
             validItems.forEach((item, idx) => {
-                let labelText = 'VIA';
-                if (item.type === 'load') {
-                    labelText = `L${stopCounter++}`;
-                } else if (item.type === 'unload') {
-                    labelText = `U${stopCounter++}`;
-                }
-                
+                let labelText = validItemLabels[idx] || 'VIA';
                 let labelBgColor = item.type === 'load' ? '#f59e0b' : (item.type === 'unload' ? '#0284c7' : '#64748b');
                 let iconMarker = createMarkerIcon(labelText, labelBgColor);
                 let labelTypeStr = item.type === 'load' ? 'Laden' : (item.type === 'unload' ? 'Entladen' : 'Via-Punkt');
@@ -1230,10 +1243,8 @@
                 html += `<strong>Beladereihenfolge (LIFO):</strong><br><ol style="margin: 6px 0 6px 20px; padding: 0;">`;
                 
                 displayStops.forEach((stop) => {
-                    let originalIndex = nonViaStops.indexOf(stop);
-                    let stopNum = originalIndex + 1;
-
-                    let badgeTxt = stop.type === 'load' ? `L${stopNum}` : `U${stopNum}`;
+                    let validIndex = validItems.indexOf(stop);
+                    let badgeTxt = validItemLabels[validIndex] || 'VIA';
                     let badgeBg = stop.type === 'load' ? '#f59e0b' : '#0284c7';
                     let typeBadgeHtml = `<span style="background-color: ${badgeBg}; color: white; padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; font-weight: bold;">${badgeTxt}</span>`;
                     
@@ -1344,6 +1355,11 @@
         const currentStop = assistantStops[assistantIndex];
         const isLoadStop = currentStop.type === 'load';
 
+        const validStops = addresses.filter(s => s && s.type !== 'via');
+        const validStopLabels = computeStopLabels(validStops);
+        const currentStopValidIdx = validStops.indexOf(currentStop);
+        const currentStopBadgeLabel = currentStopValidIdx !== -1 ? validStopLabels[currentStopValidIdx] : (isLoadStop ? 'L' : 'U');
+
         const totalKollis = assistantStops.reduce((sum, s) => sum + parseKolliSum(s.koll), 0);
         const loadedKollis = assistantStops.filter(s => s.loaded).reduce((sum, s) => sum + parseKolliSum(s.koll), 0);
         const progressPercent = totalKollis > 0 ? Math.round((loadedKollis / totalKollis) * 100) : 0;
@@ -1389,7 +1405,10 @@
             let statusClass = isLoaded ? 'cargo-segment loaded' : 'cargo-segment unloaded';
             if (isCurrent) statusClass += ' active-target';
 
-            let contentLabel = pct > 8 ? `#${idx + 1} ${isLoaded ? '✔' : '⏳'}` : (pct > 4 ? `#${idx + 1}` : '');
+            const stopValidIdx = validStops.indexOf(stop);
+            const stopLabel = stopValidIdx !== -1 ? validStopLabels[stopValidIdx] : `#${idx + 1}`;
+
+            let contentLabel = pct > 8 ? `${stopLabel} ${isLoaded ? '✔' : '⏳'}` : (pct > 4 ? `${stopLabel}` : '');
 
             let tooltipStatusText = stop.type === 'load'
                 ? (isLoaded ? 'ENTLADEN' : 'OFFEN')
@@ -1399,7 +1418,7 @@
                 <div class="${statusClass}" 
                      style="width: ${pct}%; background-color: ${color};" 
                      onclick="selectAssistantStep(${idx})"
-                     title="Station ${idx + 1}: ${stop.name} (${stopKoll} Kollis ${rawKoll.includes('+') ? '[' + rawKoll + ']' : ''} - ${tooltipStatusText})">
+                     title="Station (${stopLabel}): ${stop.name} (${stopKoll} Kollis ${rawKoll.includes('+') ? '[' + rawKoll + ']' : ''} - ${tooltipStatusText})">
                      ${contentLabel}
                 </div>
             `;
@@ -1417,10 +1436,13 @@
             const isCurrent = idx === assistantIndex;
             const activeStyle = isCurrent ? 'font-weight: bold; color: #fff;' : '';
 
+            const stopValidIdx = validStops.indexOf(stop);
+            const stopLabel = stopValidIdx !== -1 ? validStopLabels[stopValidIdx] : `S${idx + 1}`;
+
             html += `
                 <div class="legend-item" style="${activeStyle} cursor: pointer;" onclick="selectAssistantStep(${idx})">
                     <span class="legend-color-dot ${isLoaded ? 'loaded' : 'unloaded'}" style="background-color: ${color};"></span>
-                    <span>S${idx + 1}: ${parseKolliSum(stop.koll)}k ${isLoaded ? '✔' : ''}</span>
+                    <span>${stopLabel}: ${parseKolliSum(stop.koll)}k ${isLoaded ? '✔' : ''}</span>
                 </div>
             `;
         });
@@ -1430,7 +1452,7 @@
             </div>
 
             <div class="station-card" style="border-color: ${currentStopColor};">
-                <div class="station-step-label">Station ${assistantIndex + 1} von ${totalStops} (${isLoadStop ? 'Ladestopp' : 'Entladestopp'})</div>
+                <div class="station-step-label">Station ${assistantIndex + 1} von ${totalStops} (${currentStopBadgeLabel} - ${isLoadStop ? 'Ladestopp' : 'Entladestopp'})</div>
                 <div class="station-title">${currentStop.name}</div>
                 <div class="colli-big-badge" title="${currentStopRaw.includes('+') ? 'Aufschlüsselung: ' + currentStopRaw : ''}">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
