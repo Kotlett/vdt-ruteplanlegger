@@ -19,5 +19,12 @@
     "lat": 59.9189922,
     "lng": 5.3188729,
     "info": "⚠️ Ingen Lasterampe! 🕒 Levering: kl. 09:00 – 16:00"
+  },
+  {
+    "id": "ST-004",
+    "name": "Bohus Stord",
+    "lat": 59.7604083,
+    "lng": 5.4548925,
+    "info": "🕒 Levering: kl. 10:00 – 19:00"
   }
 ]
