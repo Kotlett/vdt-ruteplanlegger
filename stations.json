@@ -61,5 +61,12 @@
     "lat": 59.3955753,
     "lng": 5.3256617,
     "info": "⚠️ Ingen Lasterampe!"
+  },
+  {
+    "id": "ST-010",
+    "name": "Møbelringen Etne",
+    "lat": 59.6640668,
+    "lng": 5.9404130,
+    "info": "⚠️ Ingen Lasterampe! 🕒 Levering: kl. 10:00 – 18:00"
   }
 ]
