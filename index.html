@@ -902,8 +902,13 @@
             const data = await response.json();
             boxElement.innerHTML = "";
             if (data && data.length > 0) {
+                const seenNames = new Set(); // Duplikate pro Abfrage filtern
                 data.forEach(item => {
                     let cleanDisp = cleanAndFormatAddress(item.display_name, item.address);
+                    
+                    if (seenNames.has(cleanDisp)) return; // Überspringen, falls bereits vorhanden
+                    seenNames.add(cleanDisp);
+
                     const div = document.createElement('div');
                     div.className = 'suggestion-item'; div.innerText = cleanDisp;
                     div.onclick = async () => {
@@ -1035,7 +1040,6 @@
             if (clearAllBtn) clearAllBtn.style.display = 'inline-block';
         }
         
-        // BEZEICHNUNGEN BASIEREND AUF LÜCKENLOSER FORTLAUFENDER NUMMERIERUNG
         const labels = computeStopLabels(addresses);
 
         addresses.forEach((addr, tourIndex) => {
@@ -1158,7 +1162,7 @@
                 const itemRawKoll = getKolliRaw(item.koll);
                 let popupHtml = `<b>${labelTypeStr} (${labelText}):</b><br>${item.name}<br>Kollis: ${itemTotalKoll}` + (itemRawKoll.includes('+') ? ` (${itemRawKoll})` : '');
                 if (itemMatch) {
-                    popupHtml += `<br><span style="color:#0369a1; font-size:0.8rem;">ℹ️️ ${itemMatch.info}</span>`;
+                    popupHtml += `<br><span style="color:#0369a1; font-size:0.8rem;">ℹ ${itemMatch.info}</span>`;
                 }
                 popupHtml += `<br><button class="map-popup-btn" style="background:#ef4444; margin-top:6px;" onclick="removeAddress(${idx}); map.closePopup();">Stopp entfernen</button>`;
 
