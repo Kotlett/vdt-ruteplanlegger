@@ -443,26 +443,20 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // BERECHNUNGSLOGIK FÜR LABELS BASIEREND AUF KOLLI-TEILEN (z. B. 5+6+7 -> U3-5, 2+2+3+5 -> L5-8)
+    // EINFACHE FORTLAUFENDE NUMMERIERUNG FÜR LADESTELLEN (L1, L2, L3... bzw. U1, U2, U3...)
     function computeStopLabels(stopsList) {
         const labels = new Array(stopsList.length);
-        let currentSeq = 1;
+        let loadSeq = 1;
+        let unloadSeq = 1;
 
         stopsList.forEach((item, idx) => {
             if (!item) return;
             if (item.type === 'via') {
                 labels[idx] = 'VIA';
+            } else if (item.type === 'load') {
+                labels[idx] = `L${loadSeq++}`;
             } else {
-                const kollStr = String(item.koll !== undefined ? item.koll : "1").trim();
-                const parts = kollStr ? kollStr.split('+') : ["1"];
-                const numParts = Math.max(1, parts.length);
-
-                const startNum = currentSeq;
-                const endNum = currentSeq + numParts - 1;
-                currentSeq = endNum + 1;
-
-                const prefix = item.type === 'load' ? 'L' : 'U';
-                labels[idx] = (numParts === 1) ? `${prefix}${startNum}` : `${prefix}${startNum}-${endNum}`;
+                labels[idx] = `U${unloadSeq++}`;
             }
         });
 
@@ -1041,7 +1035,7 @@
             if (clearAllBtn) clearAllBtn.style.display = 'inline-block';
         }
         
-        // NEUE BEZEICHNUNGEN BASIEREND AUF KOLLI-TEILEN
+        // BEZEICHNUNGEN BASIEREND AUF LÜCKENLOSER FORTLAUFENDER NUMMERIERUNG
         const labels = computeStopLabels(addresses);
 
         addresses.forEach((addr, tourIndex) => {
@@ -1164,7 +1158,7 @@
                 const itemRawKoll = getKolliRaw(item.koll);
                 let popupHtml = `<b>${labelTypeStr} (${labelText}):</b><br>${item.name}<br>Kollis: ${itemTotalKoll}` + (itemRawKoll.includes('+') ? ` (${itemRawKoll})` : '');
                 if (itemMatch) {
-                    popupHtml += `<br><span style="color:#0369a1; font-size:0.8rem;">ℹ️ ${itemMatch.info}</span>`;
+                    popupHtml += `<br><span style="color:#0369a1; font-size:0.8rem;">ℹ️️ ${itemMatch.info}</span>`;
                 }
                 popupHtml += `<br><button class="map-popup-btn" style="background:#ef4444; margin-top:6px;" onclick="removeAddress(${idx}); map.closePopup();">Stopp entfernen</button>`;
 
