@@ -47,5 +47,19 @@
     "lat": 59.3879921,
     "lng": 5.3140071,
     "info": "🕒 Levering: kl. 08:00 – 15:30"
+  },
+  {
+    "id": "ST-008",
+    "name": "Møbelringen Math Lande Hegesund",
+    "lat": 59.3964480,
+    "lng": 5.3228174,
+    "info": "⚠️ Ingen Lasterampe!"
+  },
+  {
+    "id": "ST-009",
+    "name": "Dunkley Design",
+    "lat": 59.3955753,
+    "lng": 5.3256617,
+    "info": "⚠️ Ingen Lasterampe!"
   }
 ]
