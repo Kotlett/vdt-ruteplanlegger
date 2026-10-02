@@ -33,5 +33,19 @@
     "lat": 59.7650789,
     "lng": 5.4596685,
     "info": "⚠️ Ingen Lasterampe! 🕒 Levering: kl. 10:00 – 16:00"
+  },
+  {
+    "id": "ST-006",
+    "name": "Sandvold & Velde Supply AS",
+    "lat": 59.4165105,
+    "lng": 5.2980763,
+    "info": "⚠️ Ingen Lasterampe! 🕒 Levering: kl. 07:30 – 15:30"
+  },
+  {
+    "id": "ST-007",
+    "name": "Johs Lothe AS",
+    "lat": 59.3879921,
+    "lng": 5.3140071,
+    "info": "🕒 Levering: kl. 08:00 – 15:30"
   }
 ]
