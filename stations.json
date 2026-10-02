@@ -26,5 +26,12 @@
     "lat": 59.7604083,
     "lng": 5.4548925,
     "info": "🕒 Levering: kl. 10:00 – 19:00"
+  },
+  {
+    "id": "ST-005",
+    "name": "Skeidar Stord",
+    "lat": 59.7650789,
+    "lng": 5.4596685,
+    "info": "⚠️ Ingen Lasterampe! 🕒 Levering: kl. 10:00 – 16:00"
   }
 ]
