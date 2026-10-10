@@ -357,7 +357,6 @@
 
     let stationDatabase = [];
 
-    // Google Sheets CSV-Link zum Laden der Stationsdatenbank
     const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSQ-Skaf5o-bk6Aax1MwbrhauVzARTJ7HVyAqDt29edRT12Ma9Yj-68NVKfPAeaB3OuxlwNGOe1hxVK/pub?output=csv';
 
     async function loadStationDatabase() {
@@ -377,18 +376,17 @@
     function parseCSVToStations(text) {
         const lines = text.split('\n');
         const result = [];
-        // Annahme: Erste Zeile ist Kopfzeile (Header)
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
-            // CSV Parser mit Berücksichtigung von Anführungszeichen
             const row = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(val => val.replace(/^"\vert{}"$/g, '').trim());
             if (row.length >= 4) {
+                const infoText = row[3] ? row[3].trim() : "";
                 result.push({
                     name: row[0],
                     lat: parseFloat(row[1]),
                     lng: parseFloat(row[2]),
-                    info: row[3]
+                    info: infoText
                 });
             }
         }
@@ -495,7 +493,9 @@
         for (const st of stationDatabase) {
             const distKm = getDistanceFromLatLonInKm(lat, lng, st.lat, st.lng);
             if (distKm * 1000 <= radiusMeters) {
-                return st;
+                if (st.info && st.info.trim() !== "") {
+                    return st;
+                }
             }
         }
         return null;
@@ -850,6 +850,7 @@
         const queryNorm = normalizeScandinavianInput(query).toLowerCase();
         let matches = [];
 
+        // 1. Google Sheets Datenbank ZUERST durchsuchen (höhere Priorität & exakte Sheet-Koordinaten)
         if (stationDatabase && stationDatabase.length > 0) {
             stationDatabase.forEach(st => {
                 const stNameNorm = normalizeScandinavianInput(st.name || "").toLowerCase();
@@ -866,6 +867,7 @@
             });
         }
 
+        // 2. OpenStreetMap (Nominatim) als Ergänzung hinzufügen, falls nicht im Sheet
         const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=no,se&addressdetails=1&extratags=1&q=${encodeURIComponent(normalizeScandinavianInput(query))}&limit=6`;
         try {
             const response = await fetch(url);
@@ -877,6 +879,7 @@
                     if (seenNames.has(cleanDisp)) return;
                     seenNames.add(cleanDisp);
 
+                    // Nur hinzufügen, wenn der Ort nicht schon über das Sheet abgedeckt ist
                     if (!matches.some(m => Math.abs(m.lat - parseFloat(item.lat)) < 0.0001 && Math.abs(m.lng - parseFloat(item.lon || item.lng)) < 0.0001)) {
                         matches.push({
                             name: cleanDisp,
@@ -893,7 +896,8 @@
             matches.slice(0, 6).forEach(item => {
                 const div = document.createElement('div');
                 div.className = item.isDb ? 'suggestion-item db-match' : 'suggestion-item';
-                div.innerHTML = item.isDb ? `⭐ <strong>${item.name}</strong> <span style="font-size:0.75rem;">(${item.info})</span>` : item.name;
+                let infoBadge = (item.isDb && item.info && item.info.trim() !== "") ? ` <span style="font-size:0.75rem;">(${item.info})</span>` : "";
+                div.innerHTML = item.isDb ? `⭐ <strong>${item.name}</strong>${infoBadge}` : item.name;
                 
                 div.onclick = async () => {
                     inputElement.value = item.name;
@@ -922,13 +926,17 @@
         }
 
         const queryNorm = normalizeScandinavianInput(address).toLowerCase();
+        
+        // 1. Zuerst exakt in der Google-Sheets-Datenbank suchen, um Sheet-Koordinaten zu priorisieren
         for (const st of stationDatabase) {
-            if (normalizeScandinavianInput(st.name || "").toLowerCase() === queryNorm || normalizeScandinavianInput(st.name || "").toLowerCase().includes(queryNorm)) {
+            const stNameNorm = normalizeScandinavianInput(st.name || "").toLowerCase();
+            if (stNameNorm === queryNorm || stNameNorm.includes(queryNorm)) {
                 logGeoData(st.name, st.lat, st.lng);
                 return { name: st.name, lat: st.lat, lng: st.lng };
             }
         }
 
+        // 2. Fallback auf OpenStreetMap
         const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=no,se&addressdetails=1&q=${encodeURIComponent(normalizeScandinavianInput(address))}&limit=1`;
         try {
             const response = await fetch(url);
