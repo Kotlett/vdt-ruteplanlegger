@@ -275,8 +275,8 @@
                     <input type="text" id="newAddressKoll" value="1" placeholder="1">
                 </div>
 
-                <!-- 3. Name -->
-                <input type="text" id="newAddressInput" placeholder="z.B. Skeidar Haugesund..." oninput="handleNewAddressInput(this)" onkeydown="handleKeyDown(event)">
+                <!-- 3. Name / Koordinaten -->
+                <input type="text" id="newAddressInput" placeholder="Bohus Haugesund oder Lat,Lng..." oninput="handleNewAddressInput(this)" onkeydown="handleKeyDown(event)">
             </div>
             <div id="newAddressSuggestions" class="suggestions-box"></div>
         </div>
@@ -536,7 +536,20 @@
             .replace(/[íìîïīįĭǐȉȋỉĩị]/gi, 'i');
     }
 
-    // STREAMLINED & CLEENER GOOGLE-MAPS-LIKE FORMATTING
+    function parseCoordinatesFromInput(inputStr) {
+        if (!inputStr) return null;
+        const str = inputStr.trim();
+        const atMatch = str.match(/@(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+        if (atMatch) {
+            return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
+        }
+        const coordPairMatch = str.match(/^(-?\d{1,2}\.\d+)[,\s]+(-?\d{1,3}\.\d+)$/);
+        if (coordPairMatch) {
+            return { lat: parseFloat(coordPairMatch[1]), lng: parseFloat(coordPairMatch[2]) };
+        }
+        return null;
+    }
+
     function cleanAndFormatAddress(displayName, addressObj) {
         if (!displayName) return "";
         if (!addressObj) {
@@ -547,12 +560,10 @@
                     unique.push(p);
                 }
             });
-            return unique.slice(0, 3).join(', '); // Reduziert Redundanz und Länge
+            return unique.slice(0, 3).join(', ');
         }
 
         const a = addressObj;
-        
-        // Versuche primär Firmennamen, Geschäfte oder POIs zu erkennen
         let name = a.company || a.amenity || a.shop || a.office || a.building || a.industrial || a.craft || a.tourism || a.historic || a.leisure || a.railway || "";
         
         if (!name && displayName) {
@@ -584,7 +595,6 @@
         if (streetPart && streetPart.toLowerCase() !== name.toLowerCase()) parts.push(streetPart);
         if (cityPart) parts.push(cityPart);
 
-        // Falls zu kurz, Fallback auf Teile des Display Names ohne Duplikate
         if (parts.length < 2 && displayName) {
             let fallbackParts = displayName.split(',').map(p => p.trim());
             fallbackParts.forEach(p => {
@@ -602,7 +612,6 @@
             }
         });
 
-        // Maximal 3 Segmente behalten (Firma/Ort, Straße, PLZ Stadt) – wie Google Maps
         return cleanParts.slice(0, 3).join(', ');
     }
 
@@ -613,6 +622,38 @@
             return `<strong>${parts[0].trim()}</strong>, ` + parts.slice(1).join(',').trim();
         }
         return `<strong>${fullName}</strong>`;
+    }
+
+    // NEU: Name per Klick in der Liste bearbeiten, ohne Koordinaten zu verändern
+    function makeAddressNameEditable(event, tourIndex) {
+        event.stopPropagation();
+        const container = event.currentTarget;
+        if (container.querySelector('input')) return;
+
+        const currentName = addresses[tourIndex].name;
+        container.innerHTML = `
+            <input type="text" value="${currentName}" style="width: 100%; padding: 4px 6px; font-size: 0.85rem; border: 1px solid var(--primary-color); border-radius: 4px; outline: none; background: #fff; font-weight: 500;" onclick="event.stopPropagation()">
+        `;
+        const input = container.querySelector('input');
+        input.focus();
+        input.select();
+
+        const saveName = () => {
+            let val = input.value.trim();
+            if (val) {
+                addresses[tourIndex].name = val;
+            }
+            updateAddressUI();
+            calculateRoute(); // Aktualisiert die Karte/Popups mit dem neuen Namen, Koordinaten bleiben absolut stabil!
+        };
+
+        input.addEventListener('blur', saveName);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveName();
+            }
+        });
     }
 
     function getInteractiveIconHtml(type, tourIndex) {
@@ -670,9 +711,7 @@
         const statusEl = document.getElementById('statusText');
         statusEl.innerText = "Ermittle Adresse & Firmenname..."; statusEl.className = "pulsing";
         try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
-            const data = await response.json();
-            let resolvedName = (data && data.display_name) ? cleanAndFormatAddress(data.display_name, data.address) : `Punkt (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+            const resolvedName = await reverseGeocode(lat, lng);
             logGeoData(resolvedName, lat, lng);
             addresses.push({ name: resolvedName, lat: lat, lng: lng, type: type, koll: "1", loaded: false });
             updateAddressUI(); await calculateRoute();
@@ -726,6 +765,21 @@
         const query = inputElement.value.trim();
         const box = document.getElementById('newAddressSuggestions');
         if (query.length < 3) { box.innerHTML = ""; return; }
+        
+        const coords = parseCoordinatesFromInput(query);
+        if (coords) {
+            box.innerHTML = `<div class="suggestion-item db-match">📍 Koordinaten erkannt: ${coords.lat}, ${coords.lng} (Klicken zum Übernehmen)</div>`;
+            box.querySelector('div').onclick = async () => {
+                const resolvedName = await reverseGeocode(coords.lat, coords.lng);
+                inputElement.value = resolvedName;
+                selectedNewAddress = { name: resolvedName, lat: coords.lat, lng: coords.lng };
+                box.innerHTML = "";
+                previewMarkerLayer.clearLayers();
+                L.marker([coords.lat, coords.lng], { icon: createMarkerIcon('?', '#64748b'), opacity: 0.85 }).addTo(previewMarkerLayer).bindPopup(`<b>Vorschau (Koordinaten):</b><br>${resolvedName}`).openPopup();
+            };
+            return;
+        }
+
         debounceTimer = setTimeout(() => fetchSuggestions(query, box, inputElement, (item) => {
             selectedNewAddress = item; previewMarkerLayer.clearLayers();
             L.marker([item.lat, item.lng], { icon: createMarkerIcon('?', '#64748b'), opacity: 0.85 }).addTo(previewMarkerLayer).bindPopup(`<b>Vorschau:</b><br>${item.name}`).openPopup();
@@ -734,13 +788,11 @@
 
     function handleKeyDown(event) { if (event.key === 'Enter') { event.preventDefault(); addAddress(); } }
 
-    // VERBESSERTE SUCHE: Durchsucht primär die lokale Stations-DB (wie Skeidar, ASKO etc.) + optimiertes OSM-Query
     async function fetchSuggestions(query, boxElement, inputElement, onSelectCallback) {
         boxElement.innerHTML = "";
         const queryNorm = normalizeScandinavianInput(query).toLowerCase();
         let matches = [];
 
-        // 1. Lokale Stations-Datenbank durchsuchen (perfekt für bekannte Firmen/Kunden)
         if (stationDatabase && stationDatabase.length > 0) {
             stationDatabase.forEach(st => {
                 const stNameNorm = normalizeScandinavianInput(st.name || "").toLowerCase();
@@ -757,7 +809,6 @@
             });
         }
 
-        // 2. OSM Nominatim Suche mit optimierten Parametern (POI-freundlicher)
         const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=no,se&addressdetails=1&extratags=1&q=${encodeURIComponent(normalizeScandinavianInput(query))}&limit=6`;
         try {
             const response = await fetch(url);
@@ -769,7 +820,6 @@
                     if (seenNames.has(cleanDisp)) return;
                     seenNames.add(cleanDisp);
 
-                    // Nicht doppelt hinzufügen, falls schon in DB gefunden
                     if (!matches.some(m => Math.abs(m.lat - parseFloat(item.lat)) < 0.0001 && Math.abs(m.lng - parseFloat(item.lon || item.lng)) < 0.0001)) {
                         matches.push({
                             name: cleanDisp,
@@ -807,7 +857,13 @@
     });
 
     async function geocodeAddress(address) {
-        // Prüfe zuerst lokale DB
+        const coords = parseCoordinatesFromInput(address);
+        if (coords) {
+            const resolvedName = await reverseGeocode(coords.lat, coords.lng);
+            logGeoData(resolvedName, coords.lat, coords.lng);
+            return { name: resolvedName, lat: coords.lat, lng: coords.lng };
+        }
+
         const queryNorm = normalizeScandinavianInput(address).toLowerCase();
         for (const st of stationDatabase) {
             if (normalizeScandinavianInput(st.name || "").toLowerCase() === queryNorm || normalizeScandinavianInput(st.name || "").toLowerCase().includes(queryNorm)) {
@@ -848,7 +904,7 @@
             selectedNewAddress = null; previewMarkerLayer.clearLayers();
             document.getElementById('newAddressSuggestions').innerHTML = "";
             updateAddressUI(); await calculateRoute();
-        } else { alert("Standort nicht gefunden."); }
+        } else { alert("Standort oder Koordinaten konnten nicht aufgelöst werden."); }
     }
 
     async function removeAddress(tourIndex) {
@@ -927,7 +983,7 @@
         container.innerHTML = "";
 
         if (addresses.length === 0) {
-            container.innerHTML = `<div class="empty-hint">Noch keine Stopps hinzugefügt. Rechtsklick auf die Karte oder manuelle Eingabe nutzen.</div>`;
+            container.innerHTML = `<div class="empty-hint">Noch keine Stopps hinzugefügt. Nutze die Eingabe oder Rechtsklick auf die Karte.</div>`;
             if (clearAllBtn) clearAllBtn.style.display = 'none';
             return;
         } else {
@@ -980,7 +1036,7 @@
                             <span class="drag-handle" draggable="true" ondragstart="dragStart(event, ${tourIndex})" ondragend="dragEnd(event)" title="Zum Sortieren ziehen (PC)">☰</span>
                             ${moveButtonsHtml}
                             ${badgeHtml}
-                            <span class="address-text">${colorBadge} ${kollInfo} <span style="overflow:hidden; text-overflow:ellipsis;" title="${addr.name}">${formattedName}</span></span>
+                            <span class="address-text">${colorBadge} ${kollInfo} <span style="overflow:hidden; text-overflow:ellipsis; cursor:pointer;" onclick="makeAddressNameEditable(event, ${tourIndex})" title="Klicken, um den Firmennamen anzupassen">${formattedName}</span></span>
                         </div>
                         <button class="btn-del" onclick="removeAddress(${tourIndex})" title="Löschen">×</button>
                     </div>
