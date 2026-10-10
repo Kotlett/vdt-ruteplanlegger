@@ -318,17 +318,16 @@
 <script>
     function computeStopLabels(stopsList) {
         const labels = new Array(stopsList.length);
-        let loadSeq = 1;
-        let unloadSeq = 1;
+        let globalSeq = 1; // Gemeinsamer Zähler für L- und U-Stopps
 
         stopsList.forEach((item, idx) => {
             if (!item) return;
             if (item.type === 'via') {
                 labels[idx] = 'VIA';
             } else if (item.type === 'load') {
-                labels[idx] = `L${loadSeq++}`;
-            } else {
-                labels[idx] = `U${unloadSeq++}`;
+                labels[idx] = `L${globalSeq++}`;
+            } else if (item.type === 'unload') {
+                labels[idx] = `U${globalSeq++}`;
             }
         });
 
@@ -496,7 +495,6 @@
         }
     }
 
-    // Funktion zum Ein-/Ausblenden der Stationsinfo per Klick auf das Ausrufezeichen
     function toggleStationInfoBox(tourIndex) {
         const infoBox = document.getElementById(`station-info-${tourIndex}`);
         if (infoBox) {
