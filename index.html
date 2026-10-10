@@ -183,9 +183,6 @@
         }
         .btn-move:hover:not(:disabled) { background: #e2e8f0; border-color: #cbd5e1; }
         .btn-move:disabled { opacity: 0.3; cursor: default; }
-
-        .drag-handle { color: #94a3b8; cursor: grab; font-weight: bold; flex-shrink: 0; padding: 2px 2px; }
-        .drag-handle:active { cursor: grabbing; }
         
         .btn-del { 
             background: var(--danger-color); color: white; border: none; width: 22px; height: 22px;
@@ -380,14 +377,22 @@
             const line = lines[i].trim();
             if (!line) continue;
             const row = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(val => val.replace(/^"\vert{}"$/g, '').trim());
-            if (row.length >= 4) {
+            if (row.length >= 3) {
+                const name = row[0];
+                const latStr = row[1] ? row[1].replace(',', '.') : "";
+                const lngStr = row[2] ? row[2].replace(',', '.') : "";
+                const lat = parseFloat(latStr);
+                const lng = parseFloat(lngStr);
                 const infoText = row[3] ? row[3].trim() : "";
-                result.push({
-                    name: row[0],
-                    lat: parseFloat(row[1]),
-                    lng: parseFloat(row[2]),
-                    info: infoText
-                });
+                
+                if (name && !isNaN(lat) && !isNaN(lng)) {
+                    result.push({
+                        name: name,
+                        lat: lat,
+                        lng: lng,
+                        info: infoText
+                    });
+                }
             }
         }
         return result;
@@ -395,14 +400,13 @@
 
     let currentStopType = 'unload';
     let addresses = []; 
-    let depotData = { name: "VD Transport AS, Sørestrandvegen, 6220 Straumgjerde", lat: 62.3342430, lng: 6.5856790 };
+    let depotData = { name: "VD Transport AS, Sørestrandvegen, 6220 Straumgjerde", lat: 62.3342430, lng: 6.5856790, isFromDb: true };
     let debounceTimer = null;
     let depotDebounceTimer = null;
     let selectedNewAddress = null;
     let routeLayer = null;
     let markersLayer = L.layerGroup();
     let previewMarkerLayer = L.layerGroup();
-    let draggedIndex = null;
 
     function saveTourToFile() {
         if (addresses.length === 0) {
@@ -460,8 +464,13 @@
                 }
 
                 if (tourPayload.depot && typeof tourPayload.depot.lat === 'number' && typeof tourPayload.depot.lng === 'number') {
-                    depotData = tourPayload.depot;
-                    document.getElementById('depotInput').value = depotData.name || "";
+                    depotData = {
+                        name: tourPayload.depot.name || "",
+                        lat: parseFloat(tourPayload.depot.lat),
+                        lng: parseFloat(tourPayload.depot.lng),
+                        isFromDb: Boolean(tourPayload.depot.isFromDb)
+                    };
+                    document.getElementById('depotInput').value = depotData.name;
                 }
 
                 const loadedStops = tourPayload.stops || tourPayload.addresses;
@@ -471,7 +480,8 @@
                     lng: parseFloat(s.lng),
                     type: s.type || 'unload',
                     koll: s.koll !== undefined ? s.koll : 1,
-                    loaded: Boolean(s.loaded)
+                    loaded: Boolean(s.loaded),
+                    isFromDb: Boolean(s.isFromDb)
                 }));
 
                 updateAddressUI();
@@ -489,15 +499,30 @@
         reader.readAsText(file);
     }
 
-    function getMatchedStationData(lat, lng, radiusMeters = 200) {
-        for (const st of stationDatabase) {
-            const distKm = getDistanceFromLatLonInKm(lat, lng, st.lat, st.lng);
-            if (distKm * 1000 <= radiusMeters) {
-                if (st.info && st.info.trim() !== "") {
-                    return st;
+    function getMatchedStationData(lat, lng, stopName = "", isFromDb = false) {
+        if (stopName) {
+            const cleanNameNorm = normalizeScandinavianInput(stopName).toLowerCase();
+            for (const st of stationDatabase) {
+                const stNameNorm = normalizeScandinavianInput(st.name || "").toLowerCase();
+                if (stNameNorm === cleanNameNorm || cleanNameNorm.includes(stNameNorm) || stNameNorm.includes(cleanNameNorm)) {
+                    if (st.info && st.info.trim() !== "") {
+                        return st;
+                    }
                 }
             }
         }
+
+        if (!isFromDb) {
+            for (const st of stationDatabase) {
+                const distKm = getDistanceFromLatLonInKm(lat, lng, st.lat, st.lng);
+                if (distKm * 1000 <= 100) {
+                    if (st.info && st.info.trim() !== "") {
+                        return st;
+                    }
+                }
+            }
+        }
+
         return null;
     }
 
@@ -591,9 +616,9 @@
         if (atMatch) {
             return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
         }
-        const coordPairMatch = str.match(/^(-?\d{1,2}\.\d+)[,\s]+(-?\d{1,3}\.\d+)$/);
+        const coordPairMatch = str.match(/^(-?\d{1,2}[\.,]\d+)[,\s]+(-?\d{1,3}[\.,]\d+)$/);
         if (coordPairMatch) {
-            return { lat: parseFloat(coordPairMatch[1]), lng: parseFloat(coordPairMatch[2]) };
+            return { lat: parseFloat(coordPairMatch[1].replace(',', '.')), lng: parseFloat(coordPairMatch[2].replace(',', '.')) };
         }
         return null;
     }
@@ -699,6 +724,7 @@
             let val = input.value.trim();
             if (val) {
                 addresses[tourIndex].name = val;
+                addresses[tourIndex].isFromDb = false;
             }
             updateAddressUI();
             calculateRoute();
@@ -770,12 +796,12 @@
         try {
             const resolvedName = await reverseGeocode(lat, lng);
             logGeoData(resolvedName, lat, lng);
-            addresses.push({ name: resolvedName, lat: lat, lng: lng, type: type, koll: "1", loaded: false });
+            addresses.push({ name: resolvedName, lat: lat, lng: lng, type: type, koll: "1", loaded: false, isFromDb: false });
             updateAddressUI(); await calculateRoute();
         } catch (err) {
             let fallbackName = `Standort (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
             logGeoData(fallbackName, lat, lng);
-            addresses.push({ name: fallbackName, lat: lat, lng: lng, type: type, koll: "1", loaded: false });
+            addresses.push({ name: fallbackName, lat: lat, lng: lng, type: type, koll: "1", loaded: false, isFromDb: false });
             updateAddressUI(); await calculateRoute();
         } finally { statusEl.innerText = "Bereit."; statusEl.className = ""; }
     }
@@ -795,7 +821,7 @@
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const lat = pos.coords.latitude, lng = pos.coords.longitude;
             const resolvedName = await reverseGeocode(lat, lng);
-            depotData = { name: resolvedName || `GPS: ${lat}, ${lng}`, lat: lat, lng: lng };
+            depotData = { name: resolvedName || `GPS: ${lat}, ${lng}`, lat: lat, lng: lng, isFromDb: false };
             document.getElementById('depotInput').value = depotData.name;
             logGeoData(depotData.name, lat, lng);
             statusEl.className = ""; await calculateRoute();
@@ -829,7 +855,7 @@
             box.querySelector('div').onclick = async () => {
                 const resolvedName = await reverseGeocode(coords.lat, coords.lng);
                 inputElement.value = resolvedName;
-                selectedNewAddress = { name: resolvedName, lat: coords.lat, lng: coords.lng };
+                selectedNewAddress = { name: resolvedName, lat: coords.lat, lng: coords.lng, isFromDb: false };
                 box.innerHTML = "";
                 previewMarkerLayer.clearLayers();
                 L.marker([coords.lat, coords.lng], { icon: createMarkerIcon('?', '#64748b'), opacity: 0.85 }).addTo(previewMarkerLayer).bindPopup(`<b>Vorschau (Koordinaten):</b><br>${resolvedName}`).openPopup();
@@ -850,7 +876,6 @@
         const queryNorm = normalizeScandinavianInput(query).toLowerCase();
         let matches = [];
 
-        // 1. Google Sheets Datenbank ZUERST durchsuchen (höhere Priorität & exakte Sheet-Koordinaten)
         if (stationDatabase && stationDatabase.length > 0) {
             stationDatabase.forEach(st => {
                 const stNameNorm = normalizeScandinavianInput(st.name || "").toLowerCase();
@@ -867,7 +892,6 @@
             });
         }
 
-        // 2. OpenStreetMap (Nominatim) als Ergänzung hinzufügen, falls nicht im Sheet
         const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=no,se&addressdetails=1&extratags=1&q=${encodeURIComponent(normalizeScandinavianInput(query))}&limit=6`;
         try {
             const response = await fetch(url);
@@ -879,7 +903,6 @@
                     if (seenNames.has(cleanDisp)) return;
                     seenNames.add(cleanDisp);
 
-                    // Nur hinzufügen, wenn der Ort nicht schon über das Sheet abgedeckt ist
                     if (!matches.some(m => Math.abs(m.lat - parseFloat(item.lat)) < 0.0001 && Math.abs(m.lng - parseFloat(item.lon || item.lng)) < 0.0001)) {
                         matches.push({
                             name: cleanDisp,
@@ -902,7 +925,13 @@
                 div.onclick = async () => {
                     inputElement.value = item.name;
                     logGeoData(item.name, item.lat, item.lng);
-                    const obj = { name: item.name, lat: item.lat, lng: item.lng, type: currentStopType };
+                    const obj = { 
+                        name: item.name, 
+                        lat: item.lat, 
+                        lng: item.lng, 
+                        type: currentStopType, 
+                        isFromDb: item.isDb === true 
+                    };
                     boxElement.innerHTML = "";
                     if (onSelectCallback) await onSelectCallback(obj);
                 };
@@ -918,25 +947,23 @@
     });
 
     async function geocodeAddress(address) {
+        if (!address) return { name: "VD Transport AS", lat: 62.3342430, lng: 6.5856790, isFromDb: true };
         const coords = parseCoordinatesFromInput(address);
         if (coords) {
             const resolvedName = await reverseGeocode(coords.lat, coords.lng);
             logGeoData(resolvedName, coords.lat, coords.lng);
-            return { name: resolvedName, lat: coords.lat, lng: coords.lng };
+            return { name: resolvedName, lat: coords.lat, lng: coords.lng, isFromDb: false };
         }
 
         const queryNorm = normalizeScandinavianInput(address).toLowerCase();
-        
-        // 1. Zuerst exakt in der Google-Sheets-Datenbank suchen, um Sheet-Koordinaten zu priorisieren
         for (const st of stationDatabase) {
             const stNameNorm = normalizeScandinavianInput(st.name || "").toLowerCase();
-            if (stNameNorm === queryNorm || stNameNorm.includes(queryNorm)) {
+            if (stNameNorm === queryNorm || stNameNorm.includes(queryNorm) || queryNorm.includes(stNameNorm)) {
                 logGeoData(st.name, st.lat, st.lng);
-                return { name: st.name, lat: st.lat, lng: st.lng };
+                return { name: st.name, lat: st.lat, lng: st.lng, isFromDb: true };
             }
         }
 
-        // 2. Fallback auf OpenStreetMap
         const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=no,se&addressdetails=1&q=${encodeURIComponent(normalizeScandinavianInput(address))}&limit=1`;
         try {
             const response = await fetch(url);
@@ -945,11 +972,14 @@
                 let cleanDisp = cleanAndFormatAddress(data[0].display_name, data[0].address);
                 const latVal = parseFloat(data[0].lat);
                 const lngVal = parseFloat(data[0].lng || data[0].lon);
-                logGeoData(cleanDisp, latVal, lngVal);
-                return { name: cleanDisp, lat: latVal, lng: lngVal };
+                if (!isNaN(latVal) && !isNaN(lngVal)) {
+                    logGeoData(cleanDisp, latVal, lngVal);
+                    return { name: cleanDisp, lat: latVal, lng: lngVal, isFromDb: false };
+                }
             }
         } catch (e) {}
-        return null;
+
+        return { name: address, lat: 62.3342430, lng: 6.5856790, isFromDb: false };
     }
 
     async function addAddress() {
@@ -963,6 +993,7 @@
             obj.type = currentStopType;
             obj.koll = kollInput.value.trim() || "1";
             obj.loaded = false;
+            if (obj.isFromDb === undefined) obj.isFromDb = false;
             logGeoData(obj.name, obj.lat, obj.lng);
             addresses.push(obj);
             input.value = ""; kollInput.value = "1";
@@ -1018,19 +1049,6 @@
         input.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
     }
 
-    function dragStart(e, index) { draggedIndex = index; e.dataTransfer.effectAllowed = 'move'; }
-    function dragEnd(e) { draggedIndex = null; }
-    function dragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
-    async function drop(e, targetIndex) {
-        e.preventDefault();
-        if (draggedIndex === null || draggedIndex === targetIndex) return;
-        if (!checkLoadingSafety("Reihenfolge per Drag & Drop")) return;
-        
-        const item = addresses.splice(draggedIndex, 1)[0];
-        addresses.splice(targetIndex, 0, item);
-        updateAddressUI(); await calculateRoute();
-    }
-
     async function moveStop(index, direction) {
         const targetIndex = index + direction;
         if (targetIndex < 0 || targetIndex >= addresses.length) return;
@@ -1077,7 +1095,7 @@
             let formattedName = formatAddressNameBold(addr.name);
             let itemClass = addr.loaded ? "address-item is-loaded" : "address-item";
 
-            const matchedStation = getMatchedStationData(addr.lat, addr.lng, 200);
+            const matchedStation = getMatchedStationData(addr.lat, addr.lng, addr.name, addr.isFromDb);
             let stationInfoHtml = "";
             if (matchedStation) {
                 stationInfoHtml = `
@@ -1097,10 +1115,9 @@
             `;
 
             container.innerHTML += `
-                <div class="${itemClass}" ondragover="dragOver(event)" ondrop="drop(event, ${tourIndex})">
+                <div class="${itemClass}">
                     <div class="address-main-row">
                         <div class="address-content">
-                            <span class="drag-handle" draggable="true" ondragstart="dragStart(event, ${tourIndex})" ondragend="dragEnd(event)" title="Zum Sortieren ziehen (PC)">☰</span>
                             ${moveButtonsHtml}
                             ${badgeHtml}
                             <span class="address-text">${colorBadge} ${kollInfo} <span style="overflow:hidden; text-overflow:ellipsis; cursor:pointer;" onclick="makeAddressNameEditable(event, ${tourIndex})" title="Klicken, um den Firmennamen anzupassen">${formattedName}</span> ${stationBadgeHtml}</span>
@@ -1155,7 +1172,7 @@
         markersLayer.clearLayers(); previewMarkerLayer.clearLayers();
 
         try {
-            const depotMatch = getMatchedStationData(depotData.lat, depotData.lng, 200);
+            const depotMatch = getMatchedStationData(depotData.lat, depotData.lng, depotData.name, depotData.isFromDb);
             let depotPopupText = `<b>Start:</b><br>${depotData.name}`;
             if (depotMatch) {
                 depotPopupText += `<br><span style="color:#0369a1; font-size:0.8rem;">ℹ️ ${depotMatch.info}</span>`;
@@ -1168,6 +1185,7 @@
                 const pos = e.target.getLatLng();
                 depotData.lat = pos.lat; depotData.lng = pos.lng;
                 depotData.name = await reverseGeocode(pos.lat, pos.lng);
+                depotData.isFromDb = false;
                 document.getElementById('depotInput').value = depotData.name;
                 logGeoData(depotData.name, pos.lat, pos.lng);
                 updateAddressUI(); await calculateRoute();
@@ -1182,7 +1200,7 @@
                 let iconMarker = createMarkerIcon(labelText, labelBgColor);
                 let labelTypeStr = item.type === 'load' ? 'Laden' : (item.type === 'unload' ? 'Entladen' : 'Via-Punkt');
 
-                const itemMatch = getMatchedStationData(item.lat, item.lng, 200);
+                const itemMatch = getMatchedStationData(item.lat, item.lng, item.name, item.isFromDb);
                 const itemTotalKoll = parseKolliSum(item.koll);
                 const itemRawKoll = getKolliRaw(item.koll);
                 let popupHtml = `<b>${labelTypeStr} (${labelText}):</b><br>${item.name}<br>Kollis: ${itemTotalKoll}` + (itemRawKoll.includes('+') ? ` (${itemRawKoll})` : '');
@@ -1203,6 +1221,7 @@
                     const newPos = event.target.getLatLng();
                     addresses[idx].lat = newPos.lat; addresses[idx].lng = newPos.lng;
                     addresses[idx].name = await reverseGeocode(newPos.lat, newPos.lng);
+                    addresses[idx].isFromDb = false;
                     logGeoData(addresses[idx].name, newPos.lat, newPos.lng);
                     updateAddressUI(); await calculateRoute();
                 });
@@ -1288,7 +1307,7 @@
 
                     let formattedName = formatAddressNameBold(stop.name);
 
-                    const matchedStation = getMatchedStationData(stop.lat, stop.lng, 200);
+                    const matchedStation = getMatchedStationData(stop.lat, stop.lng, stop.name, stop.isFromDb);
                     let stationInfoHtml = "";
                     let outputStationBadgeHtml = "";
                     if (matchedStation) {
