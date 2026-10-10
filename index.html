@@ -159,11 +159,20 @@
         .address-content { display: flex; align-items: center; gap: 6px; flex-grow: 1; overflow: hidden; }
         .address-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; width: 100%; }
         
+        .station-badge-btn {
+            background: #0284c7; color: white; border: none; border-radius: 50%;
+            width: 16px; height: 16px; font-size: 0.65rem; font-weight: bold;
+            display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer; flex-shrink: 0; transition: background 0.2s;
+        }
+        .station-badge-btn:hover { background: #02689d; }
+
         .station-matched-info {
             font-size: 0.75rem; color: #0369a1; background: #e0f2fe; border: 1px solid #bae6fd;
-            border-radius: 4px; padding: 3px 6px; margin-top: 4px; margin-left: 24px;
-            display: flex; align-items: center; gap: 4px;
+            border-radius: 4px; padding: 4px 8px; margin-top: 6px; margin-left: 24px;
+            display: none; align-items: center; gap: 4px;
         }
+        .station-matched-info.visible { display: flex; }
 
         .move-buttons { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
         .btn-move {
@@ -487,6 +496,14 @@
         }
     }
 
+    // Funktion zum Ein-/Ausblenden der Stationsinfo per Klick auf das Ausrufezeichen
+    function toggleStationInfoBox(tourIndex) {
+        const infoBox = document.getElementById(`station-info-${tourIndex}`);
+        if (infoBox) {
+            infoBox.classList.toggle('visible');
+        }
+    }
+
     function toggleCustomDropdown() {
         document.getElementById('customDropdownOptions').classList.toggle('open');
     }
@@ -624,7 +641,6 @@
         return `<strong>${fullName}</strong>`;
     }
 
-    // NEU: Name per Klick in der Liste bearbeiten, ohne Koordinaten zu verändern
     function makeAddressNameEditable(event, tourIndex) {
         event.stopPropagation();
         const container = event.currentTarget;
@@ -644,7 +660,7 @@
                 addresses[tourIndex].name = val;
             }
             updateAddressUI();
-            calculateRoute(); // Aktualisiert die Karte/Popups mit dem neuen Namen, Koordinaten bleiben absolut stabil!
+            calculateRoute();
         };
 
         input.addEventListener('blur', saveName);
@@ -1016,11 +1032,13 @@
             let stationInfoHtml = "";
             if (matchedStation) {
                 stationInfoHtml = `
-                    <div class="station-matched-info" title="Station aus Datenbank erkannt">
-                        <span>${matchedStation.info}</span>
+                    <div id="station-info-${tourIndex}" class="station-matched-info" title="Station aus Datenbank erkannt">
+                        <span>ℹ️ ${matchedStation.info}</span>
                     </div>
                 `;
             }
+
+            let stationBadgeHtml = matchedStation ? `<button class="station-badge-btn" onclick="toggleStationInfoBox(${tourIndex})" title="Stations-Info anzeigen/verstecken">!</button>` : "";
 
             let moveButtonsHtml = `
                 <div class="move-buttons">
@@ -1036,7 +1054,7 @@
                             <span class="drag-handle" draggable="true" ondragstart="dragStart(event, ${tourIndex})" ondragend="dragEnd(event)" title="Zum Sortieren ziehen (PC)">☰</span>
                             ${moveButtonsHtml}
                             ${badgeHtml}
-                            <span class="address-text">${colorBadge} ${kollInfo} <span style="overflow:hidden; text-overflow:ellipsis; cursor:pointer;" onclick="makeAddressNameEditable(event, ${tourIndex})" title="Klicken, um den Firmennamen anzupassen">${formattedName}</span></span>
+                            <span class="address-text">${colorBadge} ${kollInfo} <span style="overflow:hidden; text-overflow:ellipsis; cursor:pointer;" onclick="makeAddressNameEditable(event, ${tourIndex})" title="Klicken, um den Firmennamen anzupassen">${formattedName}</span> ${stationBadgeHtml}</span>
                         </div>
                         <button class="btn-del" onclick="removeAddress(${tourIndex})" title="Löschen">×</button>
                     </div>
@@ -1226,7 +1244,7 @@
                     if (matchedStation) {
                         stationInfoHtml = `
                             <div class="station-matched-info" style="margin-top: 3px; margin-bottom: 4px; margin-left: 0;" title="Station aus Datenbank erkannt">
-                                <span>${matchedStation.info}</span>
+                                <span>ℹ️ ${matchedStation.info}</span>
                             </div>
                         `;
                     }
