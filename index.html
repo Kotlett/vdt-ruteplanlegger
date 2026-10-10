@@ -318,7 +318,7 @@
 <script>
     function computeStopLabels(stopsList) {
         const labels = new Array(stopsList.length);
-        let globalSeq = 1; // Gemeinsamer Zähler für L- und U-Stopps
+        let globalSeq = 1;
 
         stopsList.forEach((item, idx) => {
             if (!item) return;
@@ -502,6 +502,14 @@
         }
     }
 
+    // Toggle für untere Liste (LIFO-Ansicht)
+    function toggleOutputStationInfoBox(tourIndex) {
+        const infoBox = document.getElementById(`output-station-info-${tourIndex}`);
+        if (infoBox) {
+            infoBox.classList.toggle('visible');
+        }
+    }
+
     function toggleCustomDropdown() {
         document.getElementById('customDropdownOptions').classList.toggle('open');
     }
@@ -571,7 +579,9 @@
             let rawParts = displayName.split(',').map(p => p.trim());
             let unique = [];
             rawParts.forEach(p => {
-                if (!unique.some(u => u.toLowerCase() === p.toLowerCase())) {
+                let lowerP = p.toLowerCase();
+                if (lowerP === 'norge' || lowerP === 'norges' || lowerP === 'norway' || lowerP === 'noruega') return;
+                if (!unique.some(u => u.toLowerCase() === lowerP)) {
                     unique.push(p);
                 }
             });
@@ -605,15 +615,23 @@
         let city = a.city || a.town || a.village || a.municipality || a.county || "";
         let cityPart = postcode ? (city ? `${postcode} ${city}` : postcode) : city;
 
+        let country = a.country || "";
+        let lowerCountry = country.toLowerCase();
+        let isNorway = lowerCountry.includes("norge") || lowerCountry.includes("norway") || lowerCountry.includes("norges");
+        let countryPart = (!isNorway && country) ? country : "";
+
         let parts = [];
         if (name && name.toLowerCase() !== city.toLowerCase()) parts.push(name);
         if (streetPart && streetPart.toLowerCase() !== name.toLowerCase()) parts.push(streetPart);
         if (cityPart) parts.push(cityPart);
+        if (countryPart) parts.push(countryPart);
 
         if (parts.length < 2 && displayName) {
             let fallbackParts = displayName.split(',').map(p => p.trim());
             fallbackParts.forEach(p => {
-                if (p && !parts.some(existing => existing.toLowerCase().includes(p.toLowerCase()) || p.toLowerCase().includes(existing.toLowerCase()))) {
+                let lowerP = p.toLowerCase();
+                if (lowerP === 'norge' || lowerP === 'norges' || lowerP === 'norway') return;
+                if (p && !parts.some(existing => existing.toLowerCase().includes(lowerP) || lowerP.includes(existing.toLowerCase()))) {
                     parts.push(p);
                 }
             });
@@ -1239,15 +1257,17 @@
 
                     const matchedStation = getMatchedStationData(stop.lat, stop.lng, 200);
                     let stationInfoHtml = "";
+                    let outputStationBadgeHtml = "";
                     if (matchedStation) {
+                        outputStationBadgeHtml = ` <button class="station-badge-btn" onclick="toggleOutputStationInfoBox(${addrIndex})" title="Stations-Info anzeigen/verstecken">!</button>`;
                         stationInfoHtml = `
-                            <div class="station-matched-info" style="margin-top: 3px; margin-bottom: 4px; margin-left: 0;" title="Station aus Datenbank erkannt">
+                            <div id="output-station-info-${addrIndex}" class="station-matched-info" title="Station aus Datenbank erkannt">
                                 <span>ℹ️ ${matchedStation.info}</span>
                             </div>
                         `;
                     }
 
-                    html += `<li style="margin-bottom: 6px;">${loadedCheck}${typeBadgeHtml} ${kollBadge} ${formattedName}${stationInfoHtml}</li>`;
+                    html += `<li style="margin-bottom: 6px;">${loadedCheck}${typeBadgeHtml} ${kollBadge} ${formattedName}${outputStationBadgeHtml}${stationInfoHtml}</li>`;
                 });
 
                 html += `</ol>`;
