@@ -315,16 +315,30 @@
 <script>
     function computeStopLabels(stopsList) {
         const labels = new Array(stopsList.length);
-        let globalSeq = 1;
+        let loadSeq = 1;
+        let unloadSeq = 1;
+        const coordMap = new Map();
 
         stopsList.forEach((item, idx) => {
             if (!item) return;
             if (item.type === 'via') {
                 labels[idx] = 'VIA';
-            } else if (item.type === 'load') {
-                labels[idx] = `L${globalSeq++}`;
-            } else if (item.type === 'unload') {
-                labels[idx] = `U${globalSeq++}`;
+                return;
+            }
+
+            const coordKey = `${Number(item.lat).toFixed(6)}_${Number(item.lng).toFixed(6)}`;
+            
+            if (coordMap.has(coordKey)) {
+                labels[idx] = coordMap.get(coordKey);
+            } else {
+                let assignedLabel = '';
+                if (item.type === 'load') {
+                    assignedLabel = `L${loadSeq++}`;
+                } else if (item.type === 'unload') {
+                    assignedLabel = `U${unloadSeq++}`;
+                }
+                coordMap.set(coordKey, assignedLabel);
+                labels[idx] = assignedLabel;
             }
         });
 
